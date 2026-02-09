@@ -20,6 +20,8 @@ import BankTransfer from "./pages/BankTransfer";
 import EducationDonations from "./pages/EducationDonations";
 import OffersLifestyle from "./pages/OffersLifestyle";
 import SettingsPage from "./pages/Settings";
+import Cards from "./pages/Cards";
+import CurrencyAccounts from "./pages/CurrencyAccounts";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -47,6 +49,8 @@ const App = () => (
               <Route path="/bank-transfer" element={<BankTransfer />} />
               <Route path="/education" element={<EducationDonations />} />
               <Route path="/offers" element={<OffersLifestyle />} />
+              <Route path="/cards" element={<Cards />} />
+              <Route path="/currency" element={<CurrencyAccounts />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

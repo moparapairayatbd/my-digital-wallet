@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Send, Download, HandCoins, PlusCircle, ArrowDownToLine, Phone, Receipt,
-  PiggyBank, Building2, GraduationCap, Gift, Settings
+  PiggyBank, Building2, GraduationCap, Gift, Settings, CreditCard, Globe
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 
@@ -20,9 +20,11 @@ const moreItems = [
   { title: "Receive Money", url: "/receive", icon: Download },
   { title: "Request Money", url: "/request", icon: HandCoins },
   { title: "Cash Out", url: "/cash-out", icon: ArrowDownToLine },
+  { title: "My Cards", url: "/cards", icon: CreditCard },
+  { title: "Currency", url: "/currency", icon: Globe },
   { title: "Recharge", url: "/recharge", icon: Phone },
   { title: "Pay Bills", url: "/pay-bills", icon: Receipt },
-  { title: "Financial Products", url: "/financial", icon: PiggyBank },
+  { title: "Financial", url: "/financial", icon: PiggyBank },
   { title: "Bank Transfer", url: "/bank-transfer", icon: Building2 },
   { title: "Education", url: "/education", icon: GraduationCap },
   { title: "Offers", url: "/offers", icon: Gift },
