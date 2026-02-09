@@ -2,9 +2,15 @@ export const user = {
   name: "Rahim Uddin",
   nameBn: "রহিম উদ্দিন",
   phone: "01712-345678",
+  email: "rahim@example.com",
+  nid: "1234567890123",
   avatar: "",
   balance: 24580.50,
   accountNumber: "NTZ-2024-001234",
+  kycStatus: "verified" as const,
+  tier: "Premium" as const,
+  referralCode: "RAHIM2026",
+  joinDate: "2024-06-15",
 };
 
 export interface Transaction {
@@ -110,4 +116,105 @@ export const donationCategories = [
   { id: "d2", name: "Disaster Relief", nameBn: "দুর্যোগ ত্রাণ" },
   { id: "d3", name: "Orphanage", nameBn: "এতিমখানা" },
   { id: "d4", name: "Health & Medical", nameBn: "স্বাস্থ্য ও চিকিৎসা" },
+];
+
+// Spending categories for insights
+export const spendingCategories = [
+  { category: "Bills", categoryBn: "বিল", amount: 3500, color: "hsl(330, 85%, 52%)", percentage: 35 },
+  { category: "Transfer", categoryBn: "ট্রান্সফার", amount: 2850, color: "hsl(280, 65%, 55%)", percentage: 28 },
+  { category: "Shopping", categoryBn: "শপিং", amount: 1800, color: "hsl(25, 95%, 55%)", percentage: 18 },
+  { category: "Recharge", categoryBn: "রিচার্জ", amount: 1200, color: "hsl(210, 85%, 55%)", percentage: 12 },
+  { category: "Others", categoryBn: "অন্যান্য", amount: 700, color: "hsl(152, 68%, 45%)", percentage: 7 },
+];
+
+// Rewards data
+export const rewardsData = {
+  points: 2450,
+  tier: "Silver" as const,
+  nextTier: "Gold" as const,
+  nextTierPoints: 5000,
+  history: [
+    { id: "rh1", description: "Send Money Bonus", points: 50, date: "2026-02-08", type: "earned" as const },
+    { id: "rh2", description: "Bill Payment Reward", points: 30, date: "2026-02-06", type: "earned" as const },
+    { id: "rh3", description: "Redeemed Airtime", points: -200, date: "2026-02-05", type: "redeemed" as const },
+    { id: "rh4", description: "Daily Login Bonus", points: 10, date: "2026-02-04", type: "earned" as const },
+    { id: "rh5", description: "Referral Bonus", points: 100, date: "2026-02-01", type: "earned" as const },
+  ],
+  redeemable: [
+    { id: "rd1", title: "500MB Data", titleBn: "৫০০ এমবি ডাটা", points: 200, icon: "Wifi" },
+    { id: "rd2", title: "৳50 Airtime", titleBn: "৳৫০ টকটাইম", points: 500, icon: "Phone" },
+    { id: "rd3", title: "৳100 Cashback", titleBn: "৳১০০ ক্যাশব্যাক", points: 1000, icon: "DollarSign" },
+    { id: "rd4", title: "Movie Ticket", titleBn: "মুভি টিকেট", points: 1500, icon: "Ticket" },
+  ],
+};
+
+// Referral data
+export const referralData = {
+  totalReferred: 8,
+  totalEarned: 800,
+  pendingRewards: 200,
+  leaderboard: [
+    { rank: 1, name: "Karim H.", referrals: 25, earned: 2500 },
+    { rank: 2, name: "Fatima S.", referrals: 18, earned: 1800 },
+    { rank: 3, name: "Rahim U.", referrals: 8, earned: 800 },
+    { rank: 4, name: "Nusrat J.", referrals: 5, earned: 500 },
+    { rank: 5, name: "Tanvir A.", referrals: 3, earned: 300 },
+  ],
+};
+
+// FAQ data
+export const faqData = [
+  {
+    category: "Account",
+    categoryBn: "অ্যাকাউন্ট",
+    items: [
+      { q: "How do I create an account?", qBn: "কিভাবে অ্যাকাউন্ট তৈরি করব?", a: "Download the Nitrozix app and register with your phone number. Complete KYC verification for full access.", aBn: "Nitrozix অ্যাপ ডাউনলোড করুন এবং আপনার ফোন নম্বর দিয়ে নিবন্ধন করুন।" },
+      { q: "How to change my PIN?", qBn: "কিভাবে PIN পরিবর্তন করব?", a: "Go to Settings > Security > Change PIN. Verify your identity and set a new 4-digit PIN.", aBn: "সেটিংস > নিরাপত্তা > PIN পরিবর্তন করুন। পরিচয় যাচাই করুন এবং নতুন ৪-সংখ্যার PIN সেট করুন।" },
+    ],
+  },
+  {
+    category: "Transactions",
+    categoryBn: "লেনদেন",
+    items: [
+      { q: "What is the daily transaction limit?", qBn: "দৈনিক লেনদেনের সীমা কত?", a: "Basic accounts: ৳25,000/day. Premium accounts: ৳200,000/day. Contact support for higher limits.", aBn: "বেসিক অ্যাকাউন্ট: ৳২৫,০০০/দিন। প্রিমিয়াম অ্যাকাউন্ট: ৳২,০০,০০০/দিন।" },
+      { q: "How to reverse a transaction?", qBn: "কিভাবে লেনদেন বিপরীত করব?", a: "Contact our support team within 24 hours of the transaction. Provide transaction ID and reason.", aBn: "লেনদেনের ২৪ ঘণ্টার মধ্যে আমাদের সাপোর্ট টিমের সাথে যোগাযোগ করুন।" },
+    ],
+  },
+  {
+    category: "Security",
+    categoryBn: "নিরাপত্তা",
+    items: [
+      { q: "Is my money safe?", qBn: "আমার টাকা কি নিরাপদ?", a: "Yes. We use bank-level encryption, 2FA, and biometric authentication to protect your account.", aBn: "হ্যাঁ। আমরা ব্যাংক-লেভেল এনক্রিপশন, 2FA এবং বায়োমেট্রিক প্রমাণীকরণ ব্যবহার করি।" },
+      { q: "What to do if I lose my phone?", qBn: "ফোন হারিয়ে গেলে কি করব?", a: "Call our hotline 16789 immediately to block your account. You can reactivate on a new device after verification.", aBn: "অ্যাকাউন্ট ব্লক করতে আমাদের হটলাইন ১৬৭৮৯ এ কল করুন।" },
+    ],
+  },
+];
+
+// Linked bank accounts
+export const linkedBanks = [
+  { id: "lb1", bank: "Dutch-Bangla Bank", accountNo: "****4521", type: "Savings" },
+  { id: "lb2", bank: "BRAC Bank", accountNo: "****7832", type: "Current" },
+];
+
+// Security / sessions
+export const activeSessions = [
+  { id: "s1", device: "Samsung Galaxy S24", os: "Android 15", location: "Dhaka", lastActive: "Now", current: true },
+  { id: "s2", device: "MacBook Pro", os: "macOS Sonoma", location: "Dhaka", lastActive: "2 hours ago", current: false },
+];
+
+export const loginHistory = [
+  { id: "lh1", device: "Samsung Galaxy S24", date: "2026-02-09 10:30 AM", status: "success" as const },
+  { id: "lh2", device: "MacBook Pro", date: "2026-02-09 08:15 AM", status: "success" as const },
+  { id: "lh3", device: "Unknown Device", date: "2026-02-08 11:45 PM", status: "blocked" as const },
+  { id: "lh4", device: "Samsung Galaxy S24", date: "2026-02-08 09:00 AM", status: "success" as const },
+];
+
+// Statements
+export const monthlyStatements = [
+  { month: "February 2026", totalIn: 13500, totalOut: 8449, transactions: 15 },
+  { month: "January 2026", totalIn: 11500, totalOut: 8900, transactions: 22 },
+  { month: "December 2025", totalIn: 15000, totalOut: 11200, transactions: 28 },
+  { month: "November 2025", totalIn: 9200, totalOut: 7400, transactions: 18 },
+  { month: "October 2025", totalIn: 12000, totalOut: 9800, transactions: 20 },
+  { month: "September 2025", totalIn: 8500, totalOut: 6200, transactions: 14 },
 ];

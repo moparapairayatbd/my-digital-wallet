@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { transactions } from "@/data/mockData";
-import { ArrowUpRight, ArrowDownLeft, Filter } from "lucide-react";
+import { ArrowUpRight, ArrowDownLeft, ArrowLeft } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
+import { Link } from "react-router-dom";
 
 const filters = ["all", "send", "receive", "payment", "cashout", "add", "recharge"] as const;
 
@@ -18,15 +19,29 @@ const monthlyData = [
   { month: "Feb", income: 14000, expense: 7100 },
 ];
 
+// Group transactions by date
+function groupByDate(txs: typeof transactions) {
+  const groups: Record<string, typeof transactions> = {};
+  txs.forEach((tx) => {
+    if (!groups[tx.date]) groups[tx.date] = [];
+    groups[tx.date].push(tx);
+  });
+  return Object.entries(groups).sort(([a], [b]) => b.localeCompare(a));
+}
+
 const TransactionHistory = () => {
   const { t } = useLanguage();
   const [filter, setFilter] = useState<typeof filters[number]>("all");
 
   const filtered = filter === "all" ? transactions : transactions.filter(tx => tx.type === filter);
+  const grouped = groupByDate(filtered);
 
   return (
-    <div className="max-w-2xl mx-auto animate-fade-in space-y-6">
-      <h1 className="text-xl font-display font-bold">{t("Transaction History", "লেনদেনের ইতিহাস")}</h1>
+    <div className="max-w-2xl mx-auto page-enter space-y-6">
+      <div className="flex items-center gap-3">
+        <Link to="/"><Button variant="ghost" size="icon" className="h-9 w-9"><ArrowLeft className="h-5 w-5" /></Button></Link>
+        <h1 className="text-xl font-display font-bold">{t("Transaction History", "লেনদেনের ইতিহাস")}</h1>
+      </div>
 
       {/* Monthly Chart */}
       <Card>
@@ -49,40 +64,47 @@ const TransactionHistory = () => {
       </Card>
 
       {/* Filters */}
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
         {filters.map((f) => (
           <Button key={f} variant={filter === f ? "default" : "outline"} size="sm"
-            className={filter === f ? "gradient-primary text-primary-foreground" : ""}
+            className={`flex-shrink-0 ${filter === f ? "gradient-primary text-primary-foreground" : ""}`}
             onClick={() => setFilter(f)}>
             {f === "all" ? t("All", "সব") : f.charAt(0).toUpperCase() + f.slice(1)}
           </Button>
         ))}
       </div>
 
-      {/* List */}
-      <Card>
-        <CardContent className="p-0 divide-y divide-border">
-          {filtered.map((tx) => (
-            <div key={tx.id} className="flex items-center justify-between p-4">
-              <div className="flex items-center gap-3">
-                <div className={`h-9 w-9 rounded-full flex items-center justify-center ${tx.amount > 0 ? "bg-nitro-green/10" : "bg-nitro-pink/10"}`}>
-                  {tx.amount > 0 ? <ArrowDownLeft className="h-4 w-4 text-nitro-green" /> : <ArrowUpRight className="h-4 w-4 text-nitro-pink" />}
-                </div>
-                <div>
-                  <p className="text-sm font-medium">{t(tx.title, tx.titleBn)}</p>
-                  <p className="text-xs text-muted-foreground">{tx.date} {tx.to && `→ ${tx.to}`}{tx.from && `← ${tx.from}`}</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <span className={`font-semibold text-sm ${tx.amount > 0 ? "text-nitro-green" : ""}`}>
-                  {tx.amount > 0 ? "+" : ""}৳{Math.abs(tx.amount).toLocaleString()}
-                </span>
-                <Badge variant="outline" className="ml-2 text-[10px]">{tx.status}</Badge>
-              </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
+      {/* Grouped List with sticky date headers */}
+      <div className="space-y-4">
+        {grouped.map(([date, txs]) => (
+          <div key={date}>
+            <p className="text-xs font-semibold text-muted-foreground sticky top-14 bg-background py-1 z-10">{date}</p>
+            <Card>
+              <CardContent className="p-0 divide-y divide-border">
+                {txs.map((tx) => (
+                  <div key={tx.id} className="flex items-center justify-between p-4 touch-target">
+                    <div className="flex items-center gap-3">
+                      <div className={`h-10 w-10 rounded-full flex items-center justify-center ${tx.amount > 0 ? "bg-nitro-green/10" : "bg-nitro-pink/10"}`}>
+                        {tx.amount > 0 ? <ArrowDownLeft className="h-4 w-4 text-nitro-green" /> : <ArrowUpRight className="h-4 w-4 text-nitro-pink" />}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{t(tx.title, tx.titleBn)}</p>
+                        <p className="text-xs text-muted-foreground">{tx.to && `→ ${tx.to}`}{tx.from && `← ${tx.from}`}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className={`font-semibold text-sm ${tx.amount > 0 ? "text-nitro-green" : ""}`}>
+                        {tx.amount > 0 ? "+" : ""}৳{Math.abs(tx.amount).toLocaleString()}
+                      </span>
+                      <Badge variant="outline" className="ml-2 text-[10px]">{tx.status}</Badge>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
