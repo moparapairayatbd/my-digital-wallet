@@ -1,7 +1,8 @@
 import { 
-  Home, Send, Download, HandCoins, PlusCircle, Banknote, Phone, Receipt, 
+  Home, Send, Download, HandCoins, PlusCircle, Phone, Receipt, 
   QrCode, ArrowDownToLine, History, PiggyBank, Building2, GraduationCap, 
-  Gift, Settings, ChevronRight, Wallet, CreditCard, Globe, Bell, Clock, Scan
+  Gift, Settings, Wallet, CreditCard, Globe, Bell, Clock, Scan,
+  User, Award, Users, FileText, Shield, HelpCircle
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
@@ -38,6 +39,12 @@ const banking = [
 const more = [
   { title: "Transaction History", url: "/history", icon: History },
   { title: "Notifications", url: "/notifications", icon: Bell },
+  { title: "Profile", url: "/profile", icon: User },
+  { title: "Rewards", url: "/rewards", icon: Award },
+  { title: "Refer & Earn", url: "/refer", icon: Users },
+  { title: "Statements", url: "/statements", icon: FileText },
+  { title: "Security Center", url: "/security", icon: Shield },
+  { title: "Help & Support", url: "/support", icon: HelpCircle },
   { title: "Education & Donations", url: "/education", icon: GraduationCap },
   { title: "Offers & Lifestyle", url: "/offers", icon: Gift },
   { title: "Settings", url: "/settings", icon: Settings },

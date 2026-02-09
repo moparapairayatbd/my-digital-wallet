@@ -26,6 +26,12 @@ import Remittance from "./pages/Remittance";
 import PayLater from "./pages/PayLater";
 import Notifications from "./pages/Notifications";
 import QRScanner from "./pages/QRScanner";
+import Profile from "./pages/Profile";
+import Rewards from "./pages/Rewards";
+import ReferEarn from "./pages/ReferEarn";
+import Statements from "./pages/Statements";
+import SecurityCenter from "./pages/SecurityCenter";
+import HelpSupport from "./pages/HelpSupport";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -59,6 +65,12 @@ const App = () => (
               <Route path="/pay-later" element={<PayLater />} />
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/qr-scan" element={<QRScanner />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/rewards" element={<Rewards />} />
+              <Route path="/refer" element={<ReferEarn />} />
+              <Route path="/statements" element={<Statements />} />
+              <Route path="/security" element={<SecurityCenter />} />
+              <Route path="/support" element={<HelpSupport />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
