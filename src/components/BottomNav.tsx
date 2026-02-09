@@ -4,14 +4,14 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Send, Download, HandCoins, PlusCircle, ArrowDownToLine, Phone, Receipt,
-  PiggyBank, Building2, GraduationCap, Gift, Settings, CreditCard, Globe
+  PiggyBank, Building2, GraduationCap, Gift, Settings, CreditCard, Globe, Bell, Clock, Scan
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 
 const mainTabs = [
   { title: "Home", url: "/", icon: Home },
   { title: "History", url: "/history", icon: History },
-  { title: "QR Pay", url: "/merchant", icon: QrCode },
+  { title: "QR Scan", url: "/qr-scan", icon: QrCode },
   { title: "Wallet", url: "/add-money", icon: Wallet },
 ];
 
@@ -22,10 +22,13 @@ const moreItems = [
   { title: "Cash Out", url: "/cash-out", icon: ArrowDownToLine },
   { title: "My Cards", url: "/cards", icon: CreditCard },
   { title: "Currency", url: "/currency", icon: Globe },
+  { title: "Remittance", url: "/remittance", icon: Globe },
+  { title: "Pay Later", url: "/pay-later", icon: Clock },
   { title: "Recharge", url: "/recharge", icon: Phone },
   { title: "Pay Bills", url: "/pay-bills", icon: Receipt },
   { title: "Financial", url: "/financial", icon: PiggyBank },
   { title: "Bank Transfer", url: "/bank-transfer", icon: Building2 },
+  { title: "Notifications", url: "/notifications", icon: Bell },
   { title: "Education", url: "/education", icon: GraduationCap },
   { title: "Offers", url: "/offers", icon: Gift },
   { title: "Settings", url: "/settings", icon: Settings },

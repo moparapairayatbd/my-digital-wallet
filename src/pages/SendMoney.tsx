@@ -1,12 +1,15 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Send, User, CheckCircle } from "lucide-react";
+import { Send, User } from "lucide-react";
+import TransactionSuccess from "@/components/TransactionSuccess";
+import { useNavigate } from "react-router-dom";
 
 const SendMoney = () => {
   const { t } = useLanguage();
+  const navigate = useNavigate();
   const [step, setStep] = useState<"form" | "confirm" | "done">("form");
   const [phone, setPhone] = useState("");
   const [amount, setAmount] = useState("");
@@ -16,16 +19,21 @@ const SendMoney = () => {
 
   if (step === "done") {
     return (
-      <div className="max-w-md mx-auto animate-fade-in flex flex-col items-center justify-center min-h-[60vh] text-center">
-        <div className="h-20 w-20 rounded-full bg-nitro-green/10 flex items-center justify-center mb-4">
-          <CheckCircle className="h-10 w-10 text-nitro-green" />
-        </div>
-        <h2 className="font-display text-xl font-bold">{t("Money Sent!", "টাকা পাঠানো হয়েছে!")}</h2>
-        <p className="text-muted-foreground mt-1">৳{Number(amount).toLocaleString()} → {phone}</p>
-        <Button className="mt-6 gradient-primary text-primary-foreground" onClick={() => { setStep("form"); setPhone(""); setAmount(""); setReference(""); }}>
-          {t("Send Again", "আবার পাঠান")}
-        </Button>
-      </div>
+      <TransactionSuccess
+        title={t("Money Sent!", "টাকা পাঠানো হয়েছে!")}
+        subtitle={t("Your transfer was successful", "আপনার ট্রান্সফার সফল হয়েছে")}
+        amount={`৳${Number(amount).toLocaleString()}`}
+        details={[
+          { label: t("To", "প্রাপক"), value: phone },
+          { label: t("Amount", "পরিমাণ"), value: `৳${Number(amount).toLocaleString()}` },
+          { label: t("Fee", "ফি"), value: t("Free", "ফ্রি") },
+          { label: t("Transaction ID", "লেনদেন আইডি"), value: `TXN${Date.now().toString().slice(-8)}`, copyable: true },
+          { label: t("Date", "তারিখ"), value: new Date().toLocaleDateString() },
+          ...(reference ? [{ label: t("Reference", "রেফারেন্স"), value: reference }] : []),
+        ]}
+        primaryAction={{ label: t("Send Again", "আবার পাঠান"), onClick: () => { setStep("form"); setPhone(""); setAmount(""); setReference(""); } }}
+        secondaryAction={{ label: t("Back to Home", "হোমে ফিরুন"), onClick: () => navigate("/") }}
+      />
     );
   }
 
