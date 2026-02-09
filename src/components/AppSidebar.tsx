@@ -1,7 +1,7 @@
 import { 
   Home, Send, Download, HandCoins, PlusCircle, Banknote, Phone, Receipt, 
   QrCode, ArrowDownToLine, History, PiggyBank, Building2, GraduationCap, 
-  Gift, Settings, ChevronRight, Wallet
+  Gift, Settings, ChevronRight, Wallet, CreditCard, Globe
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
@@ -25,7 +25,9 @@ const payments = [
   { title: "Merchant Payment", url: "/merchant", icon: QrCode },
 ];
 
-const financial = [
+const banking = [
+  { title: "My Cards", url: "/cards", icon: CreditCard },
+  { title: "Currency Accounts", url: "/currency", icon: Globe },
   { title: "Financial Products", url: "/financial", icon: PiggyBank },
   { title: "Bank Transfer", url: "/bank-transfer", icon: Building2 },
 ];
@@ -40,7 +42,7 @@ const more = [
 const groups = [
   { label: "Money Services", items: moneyServices },
   { label: "Payments", items: payments },
-  { label: "Financial Products", items: financial },
+  { label: "Banking", items: banking },
   { label: "More", items: more },
 ];
 
