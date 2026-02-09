@@ -1,7 +1,7 @@
 import { 
   Home, Send, Download, HandCoins, PlusCircle, Banknote, Phone, Receipt, 
   QrCode, ArrowDownToLine, History, PiggyBank, Building2, GraduationCap, 
-  Gift, Settings, ChevronRight, Wallet, CreditCard, Globe
+  Gift, Settings, ChevronRight, Wallet, CreditCard, Globe, Bell, Clock, Scan
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
@@ -22,6 +22,7 @@ const moneyServices = [
 const payments = [
   { title: "Mobile Recharge", url: "/recharge", icon: Phone },
   { title: "Pay Bills", url: "/pay-bills", icon: Receipt },
+  { title: "QR Scanner", url: "/qr-scan", icon: Scan },
   { title: "Merchant Payment", url: "/merchant", icon: QrCode },
 ];
 
@@ -30,10 +31,13 @@ const banking = [
   { title: "Currency Accounts", url: "/currency", icon: Globe },
   { title: "Financial Products", url: "/financial", icon: PiggyBank },
   { title: "Bank Transfer", url: "/bank-transfer", icon: Building2 },
+  { title: "Remittance", url: "/remittance", icon: Globe },
+  { title: "Pay Later", url: "/pay-later", icon: Clock },
 ];
 
 const more = [
   { title: "Transaction History", url: "/history", icon: History },
+  { title: "Notifications", url: "/notifications", icon: Bell },
   { title: "Education & Donations", url: "/education", icon: GraduationCap },
   { title: "Offers & Lifestyle", url: "/offers", icon: Gift },
   { title: "Settings", url: "/settings", icon: Settings },

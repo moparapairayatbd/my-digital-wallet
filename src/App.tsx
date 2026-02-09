@@ -22,6 +22,10 @@ import OffersLifestyle from "./pages/OffersLifestyle";
 import SettingsPage from "./pages/Settings";
 import Cards from "./pages/Cards";
 import CurrencyAccounts from "./pages/CurrencyAccounts";
+import Remittance from "./pages/Remittance";
+import PayLater from "./pages/PayLater";
+import Notifications from "./pages/Notifications";
+import QRScanner from "./pages/QRScanner";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -51,6 +55,10 @@ const App = () => (
               <Route path="/offers" element={<OffersLifestyle />} />
               <Route path="/cards" element={<Cards />} />
               <Route path="/currency" element={<CurrencyAccounts />} />
+              <Route path="/remittance" element={<Remittance />} />
+              <Route path="/pay-later" element={<PayLater />} />
+              <Route path="/notifications" element={<Notifications />} />
+              <Route path="/qr-scan" element={<QRScanner />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
