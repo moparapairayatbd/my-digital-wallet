@@ -2,38 +2,30 @@ import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { transactions } from "@/data/mockData";
+import { useTransactions } from "@/hooks/useWallet";
 import { ArrowUpRight, ArrowDownLeft, ArrowLeft } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { Link } from "react-router-dom";
 
-const filters = ["all", "send", "receive", "payment", "cashout", "add", "recharge"] as const;
+const filters = ["all", "send", "receive", "bill_pay", "cashout", "add_money", "recharge"] as const;
 
-const monthlyData = [
-  { month: "Sep", income: 8500, expense: 6200 },
-  { month: "Oct", income: 12000, expense: 9800 },
-  { month: "Nov", income: 9200, expense: 7400 },
-  { month: "Dec", income: 15000, expense: 11200 },
-  { month: "Jan", income: 11500, expense: 8900 },
-  { month: "Feb", income: 14000, expense: 7100 },
-];
-
-// Group transactions by date
-function groupByDate(txs: typeof transactions) {
-  const groups: Record<string, typeof transactions> = {};
+function groupByDate(txs: any[]) {
+  const groups: Record<string, any[]> = {};
   txs.forEach((tx) => {
-    if (!groups[tx.date]) groups[tx.date] = [];
-    groups[tx.date].push(tx);
+    const date = new Date(tx.created_at).toLocaleDateString();
+    if (!groups[date]) groups[date] = [];
+    groups[date].push(tx);
   });
-  return Object.entries(groups).sort(([a], [b]) => b.localeCompare(a));
+  return Object.entries(groups).sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime());
 }
 
 const TransactionHistory = () => {
   const { t } = useLanguage();
-  const [filter, setFilter] = useState<typeof filters[number]>("all");
+  const { data: transactions, isLoading } = useTransactions();
+  const [filter, setFilter] = useState<string>("all");
 
-  const filtered = filter === "all" ? transactions : transactions.filter(tx => tx.type === filter);
+  const filtered = filter === "all" ? (transactions || []) : (transactions || []).filter((tx: any) => tx.type === filter);
   const grouped = groupByDate(filtered);
 
   return (
@@ -43,68 +35,65 @@ const TransactionHistory = () => {
         <h1 className="text-xl font-display font-bold">{t("Transaction History", "লেনদেনের ইতিহাস")}</h1>
       </div>
 
-      {/* Monthly Chart */}
-      <Card>
-        <CardContent className="p-4">
-          <h3 className="font-semibold text-sm mb-3">{t("Monthly Summary", "মাসিক সারাংশ")}</h3>
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={monthlyData}>
-              <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip />
-              <Bar dataKey="income" fill="hsl(152, 68%, 45%)" radius={[4, 4, 0, 0]} name={t("Income", "আয়")} />
-              <Bar dataKey="expense" fill="hsl(330, 85%, 52%)" radius={[4, 4, 0, 0]} name={t("Expense", "ব্যয়")} />
-            </BarChart>
-          </ResponsiveContainer>
-          <div className="flex gap-4 mt-2 justify-center text-xs">
-            <div className="flex items-center gap-1"><div className="h-3 w-3 rounded-sm bg-nitro-green" />{t("Income", "আয়")}</div>
-            <div className="flex items-center gap-1"><div className="h-3 w-3 rounded-sm bg-primary" />{t("Expense", "ব্যয়")}</div>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Filters */}
       <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
         {filters.map((f) => (
           <Button key={f} variant={filter === f ? "default" : "outline"} size="sm"
             className={`flex-shrink-0 ${filter === f ? "gradient-primary text-primary-foreground" : ""}`}
             onClick={() => setFilter(f)}>
-            {f === "all" ? t("All", "সব") : f.charAt(0).toUpperCase() + f.slice(1)}
+            {f === "all" ? t("All", "সব") : f.replace("_", " ").replace(/^\w/, c => c.toUpperCase())}
           </Button>
         ))}
       </div>
 
-      {/* Grouped List with sticky date headers */}
-      <div className="space-y-4">
-        {grouped.map(([date, txs]) => (
-          <div key={date}>
-            <p className="text-xs font-semibold text-muted-foreground sticky top-14 bg-background py-1 z-10">{date}</p>
-            <Card>
-              <CardContent className="p-0 divide-y divide-border">
-                {txs.map((tx) => (
-                  <div key={tx.id} className="flex items-center justify-between p-4 touch-target">
-                    <div className="flex items-center gap-3">
-                      <div className={`h-10 w-10 rounded-full flex items-center justify-center ${tx.amount > 0 ? "bg-nitro-green/10" : "bg-nitro-pink/10"}`}>
-                        {tx.amount > 0 ? <ArrowDownLeft className="h-4 w-4 text-nitro-green" /> : <ArrowUpRight className="h-4 w-4 text-nitro-pink" />}
+      {/* Transaction List */}
+      {isLoading ? (
+        <div className="space-y-3">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-16 w-full rounded-xl" />
+          ))}
+        </div>
+      ) : grouped.length > 0 ? (
+        <div className="space-y-4">
+          {grouped.map(([date, txs]) => (
+            <div key={date}>
+              <p className="text-xs font-semibold text-muted-foreground sticky top-14 bg-background py-1 z-10">{date}</p>
+              <Card>
+                <CardContent className="p-0 divide-y divide-border">
+                  {txs.map((tx: any) => {
+                    const isIncome = tx.type === "receive" || tx.type === "add_money";
+                    return (
+                      <div key={tx.id} className="flex items-center justify-between p-4 touch-target">
+                        <div className="flex items-center gap-3">
+                          <div className={`h-10 w-10 rounded-full flex items-center justify-center ${isIncome ? "bg-nitro-green/10" : "bg-nitro-pink/10"}`}>
+                            {isIncome ? <ArrowDownLeft className="h-4 w-4 text-nitro-green" /> : <ArrowUpRight className="h-4 w-4 text-nitro-pink" />}
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium capitalize">{tx.type.replace("_", " ")}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {tx.description || (tx.recipient_phone ? `→ ${tx.recipient_phone}` : tx.sender_name ? `← ${tx.sender_name}` : "")}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className={`font-semibold text-sm ${isIncome ? "text-nitro-green" : ""}`}>
+                            {isIncome ? "+" : "-"}৳{Number(tx.amount).toLocaleString()}
+                          </span>
+                          <Badge variant="outline" className="ml-2 text-[10px] capitalize">{tx.status}</Badge>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium">{t(tx.title, tx.titleBn)}</p>
-                        <p className="text-xs text-muted-foreground">{tx.to && `→ ${tx.to}`}{tx.from && `← ${tx.from}`}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <span className={`font-semibold text-sm ${tx.amount > 0 ? "text-nitro-green" : ""}`}>
-                        {tx.amount > 0 ? "+" : ""}৳{Math.abs(tx.amount).toLocaleString()}
-                      </span>
-                      <Badge variant="outline" className="ml-2 text-[10px]">{tx.status}</Badge>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </div>
-        ))}
-      </div>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-12 text-muted-foreground">
+          {t("No transactions found", "কোনো লেনদেন পাওয়া যায়নি")}
+        </div>
+      )}
     </div>
   );
 };
