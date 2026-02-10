@@ -1,25 +1,27 @@
-import { useState } from "react";
-import { Eye, EyeOff, Send, Download, HandCoins, PlusCircle, ArrowDownToLine, Receipt, Phone, QrCode, ArrowUpRight, ArrowDownLeft, ChevronRight, CreditCard, Globe, Wifi, TrendingUp, Copy } from "lucide-react";
+import { ArrowUpRight, ArrowDownLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { user, transactions, offers, spendingCategories } from "@/data/mockData";
+import { useProfile, useTransactions } from "@/hooks/useWallet";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Link } from "react-router-dom";
-import { toast } from "sonner";
+import { offers } from "@/data/mockData";
 import { SpendingInsights } from "@/components/dashboard/SpendingInsights";
 import { BalanceCard } from "@/components/dashboard/BalanceCard";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { BankingPreview } from "@/components/dashboard/BankingPreview";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const Dashboard = () => {
   const { t } = useLanguage();
+  const { data: profile } = useProfile();
+  const { data: transactions, isLoading: txLoading } = useTransactions();
+
+  const firstName = profile?.full_name?.split(" ")[0] || "User";
 
   return (
     <div className="space-y-6 animate-fade-in max-w-4xl mx-auto">
-      {/* Greeting */}
       <div>
         <h1 className="text-2xl font-display font-bold">
-          {t("Hello", "হ্যালো")}, {t(user.name.split(" ")[0], "রহিম")} 👋
+          {t("Hello", "হ্যালো")}, {firstName} 👋
         </h1>
         <p className="text-muted-foreground text-sm">{t("Welcome back to Nitrozix", "নাইট্রোজিক্সে স্বাগতম")}</p>
       </div>
@@ -55,26 +57,46 @@ const Dashboard = () => {
         </div>
         <Card>
           <CardContent className="p-0 divide-y divide-border">
-            {transactions.slice(0, 5).map((tx) => (
-              <div key={tx.id} className="flex items-center justify-between p-4 touch-target">
-                <div className="flex items-center gap-3">
-                  <div className={`h-10 w-10 rounded-full flex items-center justify-center ${tx.amount > 0 ? "bg-nitro-green/10" : "bg-nitro-pink/10"}`}>
-                    {tx.amount > 0 ? (
-                      <ArrowDownLeft className="h-4 w-4 text-nitro-green" />
-                    ) : (
-                      <ArrowUpRight className="h-4 w-4 text-nitro-pink" />
-                    )}
+            {txLoading ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="p-4 flex gap-3 items-center">
+                  <Skeleton className="h-10 w-10 rounded-full" />
+                  <div className="flex-1 space-y-1">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-3 w-20" />
                   </div>
-                  <div>
-                    <p className="text-sm font-medium">{t(tx.title, tx.titleBn)}</p>
-                    <p className="text-xs text-muted-foreground">{tx.date}</p>
-                  </div>
+                  <Skeleton className="h-4 w-16" />
                 </div>
-                <span className={`font-semibold text-sm ${tx.amount > 0 ? "text-nitro-green" : "text-foreground"}`}>
-                  {tx.amount > 0 ? "+" : ""}৳{Math.abs(tx.amount).toLocaleString()}
-                </span>
+              ))
+            ) : transactions && transactions.length > 0 ? (
+              transactions.slice(0, 5).map((tx) => {
+                const isIncome = tx.type === "receive" || tx.type === "add_money";
+                return (
+                  <div key={tx.id} className="flex items-center justify-between p-4 touch-target">
+                    <div className="flex items-center gap-3">
+                      <div className={`h-10 w-10 rounded-full flex items-center justify-center ${isIncome ? "bg-nitro-green/10" : "bg-nitro-pink/10"}`}>
+                        {isIncome ? (
+                          <ArrowDownLeft className="h-4 w-4 text-nitro-green" />
+                        ) : (
+                          <ArrowUpRight className="h-4 w-4 text-nitro-pink" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium capitalize">{tx.type.replace("_", " ")}</p>
+                        <p className="text-xs text-muted-foreground">{new Date(tx.created_at).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                    <span className={`font-semibold text-sm ${isIncome ? "text-nitro-green" : "text-foreground"}`}>
+                      {isIncome ? "+" : "-"}৳{Number(tx.amount).toLocaleString()}
+                    </span>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="p-8 text-center text-muted-foreground text-sm">
+                {t("No transactions yet. Start by sending or adding money!", "এখনো কোনো লেনদেন নেই।")}
               </div>
-            ))}
+            )}
           </CardContent>
         </Card>
       </div>

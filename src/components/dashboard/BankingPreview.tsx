@@ -1,15 +1,16 @@
 import { ChevronRight, Globe, PlusCircle, Wifi } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { user } from "@/data/mockData";
+import { useProfile } from "@/hooks/useWallet";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Link } from "react-router-dom";
 
 export function BankingPreview() {
   const { t } = useLanguage();
+  const { data: profile } = useProfile();
+  const name = profile?.full_name || "User";
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      {/* Card Preview */}
       <Link to="/cards" className="block group">
         <Card className="overflow-hidden border-0 shadow-lg hover:shadow-xl transition-shadow">
           <div className="relative h-44 bg-gradient-to-br from-accent via-primary to-secondary p-5 text-primary-foreground">
@@ -25,7 +26,7 @@ export function BankingPreview() {
             <div className="flex justify-between items-end mt-4">
               <div>
                 <p className="text-[9px] uppercase opacity-50">Holder</p>
-                <p className="text-xs font-semibold">{user.name.toUpperCase()}</p>
+                <p className="text-xs font-semibold">{name.toUpperCase()}</p>
               </div>
               <p className="text-xs font-semibold">09/28</p>
             </div>
@@ -37,7 +38,6 @@ export function BankingPreview() {
         </Card>
       </Link>
 
-      {/* Currency Accounts Preview */}
       <Link to="/currency" className="block group">
         <Card className="overflow-hidden h-full">
           <CardContent className="p-4 flex flex-col justify-between h-full">

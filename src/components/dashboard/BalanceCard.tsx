@@ -2,24 +2,30 @@ import { useState } from "react";
 import { Eye, EyeOff, Send, Download, Copy, TrendingUp } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { user } from "@/data/mockData";
+import { useWallet, useProfile } from "@/hooks/useWallet";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function BalanceCard() {
   const [showBalance, setShowBalance] = useState(true);
   const { t } = useLanguage();
+  const { data: wallet, isLoading: walletLoading } = useWallet();
+  const { data: profile } = useProfile();
+
+  const accountNumber = profile?.referral_code ? `NTZ-${profile.referral_code}` : "NTZ-...";
 
   const copyAccount = () => {
-    navigator.clipboard.writeText(user.accountNumber);
+    navigator.clipboard.writeText(accountNumber);
     toast.success("Account number copied!");
   };
+
+  const balance = wallet?.balance ? Number(wallet.balance) : 0;
 
   return (
     <Card className="gradient-primary text-primary-foreground border-0 shadow-2xl overflow-hidden -mx-4 rounded-none sm:mx-0 sm:rounded-xl">
       <CardContent className="p-5 sm:p-6 relative">
-        {/* Floating shapes */}
         <div className="absolute -right-8 -bottom-8 h-40 w-40 rounded-full bg-white/10 float-animation" />
         <div className="absolute -right-4 -top-10 h-32 w-32 rounded-full bg-white/5" />
         <div className="absolute left-1/2 -bottom-12 h-24 w-24 rounded-full bg-white/5" />
@@ -28,9 +34,13 @@ export function BalanceCard() {
           <div>
             <p className="text-sm opacity-80">{t("Total Balance", "মোট ব্যালেন্স")}</p>
             <div className="flex items-center gap-3 mt-1">
-              <h2 className="text-3xl sm:text-4xl font-display font-bold tracking-tight">
-                {showBalance ? `৳${user.balance.toLocaleString()}` : "৳ •••••"}
-              </h2>
+              {walletLoading ? (
+                <Skeleton className="h-10 w-48 bg-white/20" />
+              ) : (
+                <h2 className="text-3xl sm:text-4xl font-display font-bold tracking-tight">
+                  {showBalance ? `৳${balance.toLocaleString()}` : "৳ •••••"}
+                </h2>
+              )}
               <Button
                 variant="ghost"
                 size="icon"
@@ -41,7 +51,7 @@ export function BalanceCard() {
               </Button>
             </div>
             <button onClick={copyAccount} className="flex items-center gap-1.5 text-xs opacity-70 mt-1 hover:opacity-100 transition-opacity">
-              <span>{user.accountNumber}</span>
+              <span>{accountNumber}</span>
               <Copy className="h-3 w-3" />
             </button>
           </div>
@@ -51,7 +61,6 @@ export function BalanceCard() {
           </div>
         </div>
 
-        {/* Send/Receive quick buttons */}
         <div className="flex gap-3 mt-4 relative z-10">
           <Link to="/send" className="flex-1">
             <Button variant="ghost" className="w-full bg-white/15 hover:bg-white/25 text-primary-foreground gap-2 h-11">
@@ -63,22 +72,6 @@ export function BalanceCard() {
               <Download className="h-4 w-4" /> {t("Receive", "গ্রহণ")}
             </Button>
           </Link>
-        </div>
-
-        {/* Quick stats */}
-        <div className="flex gap-4 mt-4 pt-4 border-t border-white/20 relative z-10">
-          <div className="flex-1">
-            <p className="text-xs opacity-60">{t("Income", "আয়")}</p>
-            <p className="font-semibold text-sm mt-0.5">৳13,500</p>
-          </div>
-          <div className="flex-1">
-            <p className="text-xs opacity-60">{t("Expense", "ব্যয়")}</p>
-            <p className="font-semibold text-sm mt-0.5">৳8,449</p>
-          </div>
-          <div className="flex-1">
-            <p className="text-xs opacity-60">{t("Savings", "সঞ্চয়")}</p>
-            <p className="font-semibold text-sm mt-0.5">৳5,051</p>
-          </div>
         </div>
       </CardContent>
     </Card>

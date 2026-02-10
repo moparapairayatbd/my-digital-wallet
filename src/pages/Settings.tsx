@@ -4,9 +4,10 @@ import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { user } from "@/data/mockData";
+import { useProfile } from "@/hooks/useWallet";
+import { useAuth } from "@/contexts/AuthContext";
 import { Globe, Bell, Shield, Smartphone, ChevronRight, LogOut, FileText, HelpCircle, Info, Camera, User, Award, Users, CreditCard } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 const settingsSections = [
@@ -45,19 +46,31 @@ const settingsSections = [
 
 const SettingsPage = () => {
   const { lang, toggleLang, t } = useLanguage();
+  const { signOut } = useAuth();
+  const { data: profile } = useProfile();
+  const navigate = useNavigate();
+
+  const initials = profile?.full_name
+    ? profile.full_name.split(" ").map((n: string) => n[0]).join("").toUpperCase()
+    : "U";
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate("/auth");
+    toast.success(t("Logged out successfully", "সফলভাবে লগ আউট হয়েছে"));
+  };
 
   return (
     <div className="max-w-lg mx-auto page-enter space-y-6">
       <h1 className="text-xl font-display font-bold">{t("Settings", "সেটিংস")}</h1>
 
-      {/* Profile Card */}
       <Link to="/profile">
         <Card className="hover:shadow-md transition-shadow">
           <CardContent className="p-4 flex items-center gap-4 touch-target">
             <div className="relative">
               <Avatar className="h-16 w-16">
                 <AvatarFallback className="gradient-primary text-primary-foreground text-xl font-bold">
-                  {user.name.split(" ").map(n => n[0]).join("")}
+                  {initials}
                 </AvatarFallback>
               </Avatar>
               <button className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
@@ -65,16 +78,15 @@ const SettingsPage = () => {
               </button>
             </div>
             <div className="flex-1">
-              <h2 className="font-display font-bold text-lg">{t(user.name, user.nameBn)}</h2>
-              <p className="text-sm text-muted-foreground">{user.phone}</p>
-              <Badge variant="outline" className="mt-1 text-[10px]">{user.tier}</Badge>
+              <h2 className="font-display font-bold text-lg">{profile?.full_name || "User"}</h2>
+              <p className="text-sm text-muted-foreground">{profile?.phone || ""}</p>
+              <Badge variant="outline" className="mt-1 text-[10px] capitalize">{profile?.account_tier || "basic"}</Badge>
             </div>
             <ChevronRight className="h-5 w-5 text-muted-foreground" />
           </CardContent>
         </Card>
       </Link>
 
-      {/* Settings Sections */}
       {settingsSections.map((section) => (
         <div key={section.label}>
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 px-1">{section.label}</p>
@@ -85,9 +97,7 @@ const SettingsPage = () => {
                   <div className="flex items-center justify-between p-4 touch-target">
                     <div className="flex items-center gap-3">
                       <item.icon className={`h-5 w-5 ${item.color}`} />
-                      <div>
-                        <p className="text-sm font-medium">{t(item.title, item.titleBn)}</p>
-                      </div>
+                      <p className="text-sm font-medium">{t(item.title, item.titleBn)}</p>
                     </div>
                     {"toggle" in item ? (
                       item.toggle === "lang" ? (
@@ -113,13 +123,14 @@ const SettingsPage = () => {
         </div>
       ))}
 
-      {/* Logout */}
-      <Button variant="outline" className="w-full h-12 gap-2 text-destructive border-destructive/20 hover:bg-destructive/5"
-        onClick={() => toast.info("Logout flow would trigger here")}>
+      <Button
+        variant="outline"
+        className="w-full h-12 gap-2 text-destructive border-destructive/20 hover:bg-destructive/5"
+        onClick={handleLogout}
+      >
         <LogOut className="h-4 w-4" /> {t("Log Out", "লগ আউট")}
       </Button>
 
-      {/* App Version */}
       <p className="text-center text-xs text-muted-foreground pb-4">
         Nitrozix v2.1.0 • © 2026
       </p>

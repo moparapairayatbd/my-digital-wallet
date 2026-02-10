@@ -3,14 +3,19 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { BottomNav } from "@/components/BottomNav";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useProfile } from "@/hooks/useWallet";
 import { Globe, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { user } from "@/data/mockData";
 import { Link } from "react-router-dom";
 
 export function Layout({ children }: { children: ReactNode }) {
   const { lang, toggleLang } = useLanguage();
+  const { data: profile } = useProfile();
+
+  const initials = profile?.full_name
+    ? profile.full_name.split(" ").map((n: string) => n[0]).join("").toUpperCase()
+    : "U";
 
   return (
     <SidebarProvider>
@@ -49,7 +54,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 <Link to="/profile">
                   <Avatar className="h-8 w-8 cursor-pointer">
                     <AvatarFallback className="gradient-primary text-primary-foreground text-xs font-bold">
-                      {user.name.split(" ").map(n => n[0]).join("")}
+                      {initials}
                     </AvatarFallback>
                   </Avatar>
                 </Link>
