@@ -1,169 +1,116 @@
 
-
-# Full Mobile Redesign and New Feature Screens
+# Strowallet Virtual Card Integration
 
 ## Overview
-Complete mobile-first redesign of the Nitrozix e-wallet with improved responsiveness, a modern app-like feel, and additional feature screens to make the prototype comprehensive.
+Replace the current mock card generation (random numbers) with real Strowallet API calls for creating, funding, fetching, and managing virtual Visa cards. The Strowallet API key (public_key) will be stored securely as a backend secret and all API calls will go through a backend function to keep credentials safe.
 
-## 1. Mobile-First Layout Redesign
+## Prerequisites -- API Key Setup
+Before implementation, you will need to provide your **Strowallet Public Key**. This is found in your Strowallet dashboard under API settings. The key will be stored securely and never exposed to the browser.
 
-### Header (Layout.tsx)
-- Redesign mobile header: larger logo area, gradient-tinted status bar style
-- Add a welcome text snippet or user greeting in header on mobile
-- Notification bell with unread count badge (animated dot)
-- Ensure header shrinks/blurs on scroll for more content space
+## What Changes
 
-### Bottom Navigation (BottomNav.tsx)
-- Redesign with a floating pill-style bottom bar with rounded corners and shadow
-- Center QR Scan button as a raised/floating action button (FAB) with gradient background
-- Add subtle active indicator (dot or filled background) instead of just color change
-- Improve the "More" sheet with categorized sections (Money, Payments, Banking, More)
+### 1. Backend Function: `strowallet-proxy`
+A single backend function that proxies all Strowallet API calls securely. It will handle these operations:
 
-### Sidebar (AppSidebar.tsx)
-- Keep desktop sidebar as-is (already works well)
-- Ensure sidebar trigger is hidden on mobile (bottom nav takes over)
+- **create-customer** -- Register a Nitrozix user as a Strowallet customer (first-time card creation)
+- **create-card** -- Issue a new virtual Visa card via Strowallet
+- **fund-card** -- Add funds to an existing card
+- **fetch-card-detail** -- Get card details (number, CVV, expiry) from Strowallet
+- **card-transactions** -- Fetch transaction history for a card
+- **freeze-card** -- Freeze/unfreeze a card
 
-## 2. Dashboard Redesign (Dashboard.tsx)
+The function reads the `STROWALLET_PUBLIC_KEY` secret and forwards requests to `https://strowallet.com/api/bitvcard/...` endpoints.
 
-### Balance Card
-- Full-width edge-to-edge on mobile (negative margin to bleed into edges)
-- Add animated gradient background with floating shapes
-- Add "Send" and "Receive" quick buttons directly on the balance card
-- Show account number with copy button
+### 2. Database Changes
+Add a column to the `cards` table to store the Strowallet-issued card ID:
+- `strowallet_card_id TEXT` -- maps our card record to the Strowallet card
 
-### Quick Actions Grid
-- Redesign as a 2-row horizontal scroll on mobile (instead of 4x2 grid)
-- Larger icons with label below, subtle shadow on each action pill
-- Add animated micro-interactions on tap
+Add a column to `profiles` to track Strowallet customer registration:
+- `strowallet_customer_id TEXT` -- so we don't re-register users
 
-### "My Banking" Section (NEW)
-- Horizontal scrollable card carousel showing user's cards
-- Small currency account summary tiles
-- "Manage" links to respective pages
+### 3. Cards Page Updates (`src/pages/Cards.tsx`)
+The card creation flow stays visually the same (5-step wizard), but the "Create Card" action now calls the backend function instead of generating random numbers. The flow becomes:
 
-### Spending Insights Widget (NEW)
-- Mini donut/ring chart showing spending by category
-- Top 3 spending categories with colored bars
-- "This month" vs "Last month" comparison
+1. User picks card type, design, enters info (same UI)
+2. On "Create Card" click, the backend function:
+   - Checks if user has a Strowallet customer ID; if not, creates one via `create-user/`
+   - Calls `create-card/` with `name_on_card`, `card_type: "visa"`, `amount: "1"` (minimum prefund)
+   - Returns the real card details (card_id, masked number, expiry)
+3. Card details are saved to the `cards` table with the `strowallet_card_id`
+4. Success screen shows the real card
 
-### Recent Activity
-- Redesign transaction rows with larger tap targets for mobile
-- Add transaction category icons (different icon per type)
-- Swipe hint for "See All"
+### 4. Hook Updates (`src/hooks/useWallet.ts`)
+- **`useCreateCard`** -- Instead of generating random card numbers, calls the `strowallet-proxy` backend function
+- **`useFundCard`** (new) -- Calls fund-card endpoint to add balance to a Strowallet card
+- **`useFreezeCard`** (new) -- Calls freeze/unfreeze endpoint
+- **`useCardDetails`** (new) -- Fetches real card details (full number, CVV) on demand
 
-### Offers Section
-- Full-width promotional banner cards with gradient backgrounds
-- Auto-scroll carousel with dots indicator
+### 5. Card Controls Enhancement
+- **Show/Hide Details** button will fetch real card details from Strowallet API on demand (not stored locally for security)
+- **Freeze/Unfreeze** will call the Strowallet freeze endpoint
+- **Fund Card** button added to allow topping up card balance
 
-## 3. New Feature Screens
+## Architecture Flow
 
-### Profile Page (NEW - /profile)
-- User avatar with edit option
-- Personal details display (name, phone, email, NID)
-- KYC verification status badge
-- Account tier display (Basic/Premium)
-- Linked bank accounts list
-- Referral code section
+```text
+Browser (Cards.tsx)
+    |
+    | POST /strowallet-proxy { action: "create-card", ... }
+    v
+Backend Function (strowallet-proxy)
+    |
+    | Uses STROWALLET_PUBLIC_KEY secret
+    | POST https://strowallet.com/api/bitvcard/create-card/
+    v
+Strowallet API
+    |
+    | Returns card_id, masked_pan, expiry, etc.
+    v
+Backend Function
+    |
+    | Returns sanitized response
+    v
+Browser --> saves to cards table --> shows success
+```
 
-### Rewards and Points (NEW - /rewards)
-- Points balance display with animated counter
-- Tier progress bar (Bronze/Silver/Gold/Platinum)
-- Redeemable rewards catalog (data/airtime/cashback)
-- Points history list
-- How to earn more points section
+## Technical Details
 
-### Refer and Earn (NEW - /refer)
-- Referral code with copy and share buttons
-- Referral statistics (invited count, earned amount)
-- How it works steps
-- Leaderboard preview
+### Backend Function Structure
+```text
+supabase/functions/strowallet-proxy/index.ts
+```
 
-### Statements and Reports (NEW - /statements)
-- Monthly statement cards with download button
-- Date range picker for custom reports
-- Summary stats (total in, total out, net)
-- Export options (PDF mock)
+Supported actions via POST body `{ action: "...", ... }`:
+- `create-customer`: params (firstName, lastName, email, phone, dateOfBirth, idNumber, idType, address fields)
+- `create-card`: params (name_on_card, card_type, amount, customerEmail)
+- `fund-card`: params (card_id, amount)
+- `fetch-card-detail`: params (card_id)
+- `freeze-card`: params (card_id, action: "freeze"|"unfreeze")
 
-### Security Center (NEW - /security)
-- PIN change mock flow
-- Biometric toggle
-- Active sessions list
-- Login history
-- Two-factor authentication toggle
-- Block/report options
+### Database Migration
+```text
+ALTER TABLE cards ADD COLUMN strowallet_card_id TEXT;
+ALTER TABLE profiles ADD COLUMN strowallet_customer_id TEXT;
+```
 
-### Help and Support (NEW - /support)
-- FAQ accordion sections
-- Live chat placeholder
-- Call support button
-- Email support form
-- Popular topics grid
+### Security
+- Strowallet public key stored as a backend secret, never exposed to the frontend
+- All API calls routed through the backend function
+- User authentication required for all operations
+- Card CVV/full number fetched on-demand and never persisted in the database
 
-## 4. Existing Page Improvements
+## Files to Create/Modify
+| File | Action |
+|------|--------|
+| `supabase/functions/strowallet-proxy/index.ts` | Create -- proxy for all Strowallet API calls |
+| `src/hooks/useWallet.ts` | Modify -- update useCreateCard, add useFundCard, useFreezeCard, useCardDetails |
+| `src/pages/Cards.tsx` | Modify -- wire create flow to backend, add fund card UI, wire freeze/unfreeze |
+| Database migration | Add strowallet_card_id to cards, strowallet_customer_id to profiles |
 
-### All Transaction Pages (Send, Receive, Request, etc.)
-- Improve mobile spacing and touch targets
-- Add back button with page title in a consistent header bar
-- Larger input fields (h-14 minimum) for mobile
-- Amount input with larger font and currency symbol prefix
-- Add quick amount buttons (500, 1000, 2000, 5000)
-
-### Cards Page
-- Horizontal card carousel with swipe on mobile
-- Card details shown below selected card
-- Larger card render on mobile (full width)
-
-### Transaction History
-- Add date range selector
-- Pull-to-refresh visual hint
-- Group transactions by date with sticky date headers
-
-### Settings Page
-- Reorganize into sections with icons
-- Add profile photo section at top
-- Add logout button
-- Add app version info at bottom
-
-## 5. Global Mobile Improvements
-
-### CSS/Styling (index.css)
-- Add safe-area-inset padding for modern phones (notch support)
-- Smooth page transition animation class
-- Touch-friendly minimum heights (44px tap targets)
-- Improve scroll behavior (smooth scrolling, overscroll bounce)
-- Add subtle skeleton loading states
-
-### Responsive Breakpoints
-- Ensure all pages use full width on mobile (no max-w-md restriction)
-- Cards and grids stack vertically on small screens
-- Text sizes adjust for mobile readability
-
-## Technical Approach
-
-### Files to Create
-- `src/pages/Profile.tsx` - User profile page
-- `src/pages/Rewards.tsx` - Rewards and points system
-- `src/pages/ReferEarn.tsx` - Referral program
-- `src/pages/Statements.tsx` - Account statements
-- `src/pages/SecurityCenter.tsx` - Security settings
-- `src/pages/HelpSupport.tsx` - Help and FAQ
-
-### Files to Modify
-- `src/components/Layout.tsx` - Improved mobile header
-- `src/components/BottomNav.tsx` - Floating pill design with FAB
-- `src/pages/Dashboard.tsx` - Full redesign with new sections
-- `src/pages/Cards.tsx` - Mobile card carousel
-- `src/pages/Settings.tsx` - Enhanced settings
-- `src/pages/TransactionHistory.tsx` - Date headers and filters
-- `src/App.tsx` - New routes
-- `src/components/AppSidebar.tsx` - New menu items
-- `src/index.css` - Mobile-first utility classes
-- `src/data/mockData.ts` - Additional mock data for new features
-
-### Data Additions
-- Rewards/points mock data
-- Referral statistics
-- FAQ content
-- Security settings state
-- Spending categories breakdown
-
+## Steps
+1. Request the Strowallet Public Key secret from you
+2. Run database migration to add new columns
+3. Create the `strowallet-proxy` backend function
+4. Update `useCreateCard` hook to call the backend function
+5. Add `useFundCard`, `useFreezeCard`, `useCardDetails` hooks
+6. Update Cards.tsx to use real API responses and add fund card functionality
