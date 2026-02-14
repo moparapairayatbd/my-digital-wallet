@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
-import { ArrowLeft, Camera, CheckCircle, ChevronRight, Copy, Edit2, Shield, Loader2 } from "lucide-react";
+import { ArrowLeft, Camera, CheckCircle, ChevronRight, Copy, Edit2, Shield, Loader2, Check, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,34 @@ const Profile = () => {
   const { data: bankAccounts } = useBankAccounts();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [emailDraft, setEmailDraft] = useState("");
+  const [savingEmail, setSavingEmail] = useState(false);
+
+  const handleSaveEmail = async () => {
+    const trimmed = emailDraft.trim();
+    if (!trimmed || !user) return;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmed) || trimmed.length > 255) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+    setSavingEmail(true);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ email: trimmed })
+        .eq("user_id", user.id);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["profile", user.id] });
+      setEditingEmail(false);
+      toast.success(t("Email updated!", "ইমেইল আপডেট হয়েছে!"));
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update email");
+    } finally {
+      setSavingEmail(false);
+    }
+  };
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -132,20 +161,50 @@ const Profile = () => {
       <Card>
         <CardContent className="p-0 divide-y divide-border">
           {[
-            { label: t("Full Name", "পুরো নাম"), value: profile?.full_name || "" },
-            { label: t("Phone", "ফোন"), value: profile?.phone || "" },
-            { label: t("Email", "ইমেইল"), value: profile?.email || "" },
-            { label: t("NID", "জাতীয় পরিচয়পত্র"), value: profile?.nid ? `****${profile.nid.slice(-4)}` : "Not set" },
-            { label: t("Member Since", "সদস্য হওয়ার তারিখ"), value: profile?.created_at ? new Date(profile.created_at).toLocaleDateString() : "" },
+            { key: "name", label: t("Full Name", "পুরো নাম"), value: profile?.full_name || "" },
+            { key: "phone", label: t("Phone", "ফোন"), value: profile?.phone || "" },
+            { key: "nid", label: t("NID", "জাতীয় পরিচয়পত্র"), value: profile?.nid ? `****${profile.nid.slice(-4)}` : "Not set" },
+            { key: "since", label: t("Member Since", "সদস্য হওয়ার তারিখ"), value: profile?.created_at ? new Date(profile.created_at).toLocaleDateString() : "" },
           ].map((item) => (
-            <div key={item.label} className="flex items-center justify-between p-4 touch-target">
+            <div key={item.key} className="flex items-center justify-between p-4 touch-target">
               <div>
                 <p className="text-xs text-muted-foreground">{item.label}</p>
                 <p className="text-sm font-medium mt-0.5">{item.value}</p>
               </div>
-              <Edit2 className="h-4 w-4 text-muted-foreground" />
             </div>
           ))}
+          {/* Editable email row */}
+          <div className="flex items-center justify-between p-4 touch-target">
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-muted-foreground">{t("Email", "ইমেইল")}</p>
+              {editingEmail ? (
+                <div className="flex items-center gap-2 mt-1">
+                  <Input
+                    type="email"
+                    value={emailDraft}
+                    onChange={(e) => setEmailDraft(e.target.value)}
+                    className="h-8 text-sm"
+                    autoFocus
+                    maxLength={255}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleSaveEmail(); if (e.key === "Escape") setEditingEmail(false); }}
+                  />
+                  <Button size="icon" variant="ghost" className="h-8 w-8 text-nitro-green" disabled={savingEmail} onClick={handleSaveEmail}>
+                    {savingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setEditingEmail(false)}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-sm font-medium mt-0.5">{profile?.email || ""}</p>
+              )}
+            </div>
+            {!editingEmail && (
+              <button onClick={() => { setEmailDraft(profile?.email || ""); setEditingEmail(true); }}>
+                <Edit2 className="h-4 w-4 text-muted-foreground" />
+              </button>
+            )}
+          </div>
         </CardContent>
       </Card>
 
