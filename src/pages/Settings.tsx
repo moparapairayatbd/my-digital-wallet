@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useProfile } from "@/hooks/useWallet";
 import { useAuth } from "@/contexts/AuthContext";
-import { Globe, Bell, Shield, Smartphone, ChevronRight, LogOut, FileText, HelpCircle, Info, Camera, User, Award, Users, CreditCard } from "lucide-react";
+import { Globe, Bell, Shield, Smartphone, ChevronRight, LogOut, FileText, HelpCircle, Info, Camera, User, Award, Users, CreditCard, Moon } from "lucide-react";
+import { useTheme } from "@/contexts/ThemeContext";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -25,6 +26,7 @@ const settingsSections = [
     items: [
       { title: "Language", titleBn: "ভাষা", icon: Globe, color: "text-nitro-blue", toggle: "lang" as const },
       { title: "Notifications", titleBn: "বিজ্ঞপ্তি", icon: Bell, color: "text-nitro-orange", toggle: "notif" as const },
+      { title: "Dark Mode", titleBn: "ডার্ক মোড", icon: Moon, color: "text-nitro-purple", toggle: "theme" as const },
     ],
   },
   {
@@ -46,6 +48,7 @@ const settingsSections = [
 
 const SettingsPage = () => {
   const { lang, toggleLang, t } = useLanguage();
+  const { theme, toggleTheme } = useTheme();
   const { signOut } = useAuth();
   const { data: profile } = useProfile();
   const navigate = useNavigate();
@@ -104,6 +107,8 @@ const SettingsPage = () => {
                         <Button variant="outline" size="sm" onClick={(e) => { e.preventDefault(); toggleLang(); }}>
                           {lang === "en" ? "বাংলা" : "English"}
                         </Button>
+                      ) : item.toggle === "theme" ? (
+                        <Switch checked={theme === "dark"} onCheckedChange={toggleTheme} />
                       ) : (
                         <Switch defaultChecked />
                       )
