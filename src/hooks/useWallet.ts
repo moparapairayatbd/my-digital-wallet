@@ -2,8 +2,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
-/** Subscribe to realtime changes on wallets & transactions to auto-refresh */
+/** Subscribe to realtime changes on wallets, transactions & notifications */
 export function useRealtimeSync() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -23,8 +24,25 @@ export function useRealtimeSync() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "transactions", filter: `user_id=eq.${user.id}` },
-        () => {
+        (payload) => {
           queryClient.invalidateQueries({ queryKey: ["transactions", user.id] });
+          if (payload.eventType === "INSERT") {
+            const tx = payload.new as { type?: string; amount?: number; sender_name?: string; description?: string };
+            if (tx.type === "receive") {
+              toast.success(`💰 You received ৳${Number(tx.amount).toLocaleString()}`, {
+                description: tx.sender_name || tx.description || "Someone sent you money!",
+              });
+            }
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          queryClient.invalidateQueries({ queryKey: ["notifications", user.id] });
+          const notif = payload.new as { title?: string; message?: string };
+          toast(notif.title || "Notification", { description: notif.message });
         }
       )
       .subscribe();
