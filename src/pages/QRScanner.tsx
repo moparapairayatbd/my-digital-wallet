@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/contexts/LanguageContext";
 import TransactionSuccess from "@/components/TransactionSuccess";
 import { useNavigate } from "react-router-dom";
+import { useQRPayment, useWallet } from "@/hooks/useWallet";
+import { toast } from "sonner";
 
 const recentMerchants = [
   { id: "m1", name: "Shwapno", category: "Grocery", icon: "🛒" },
@@ -22,10 +24,34 @@ const QRScanner = () => {
   const [merchantId, setMerchantId] = useState("");
   const [amount, setAmount] = useState("");
   const [selectedMerchant, setSelectedMerchant] = useState<typeof recentMerchants[0] | null>(null);
+  const [txData, setTxData] = useState<any>(null);
+  const qrPayment = useQRPayment();
+  const { data: wallet } = useWallet();
 
   const handleMerchantSelect = (merchant: typeof recentMerchants[0]) => {
     setSelectedMerchant(merchant);
     setMode("amount");
+  };
+
+  const handlePay = async () => {
+    if (!selectedMerchant || !amount) return;
+    const amt = Number(amount);
+    if (amt <= 0) return;
+    if (wallet && wallet.balance < amt) {
+      toast.error(t("Insufficient balance", "অপর্যাপ্ত ব্যালেন্স"));
+      return;
+    }
+    try {
+      const tx = await qrPayment.mutateAsync({
+        merchantName: selectedMerchant.name,
+        category: selectedMerchant.category,
+        amount: amt,
+      });
+      setTxData(tx);
+      setMode("done");
+    } catch (err: any) {
+      toast.error(err.message);
+    }
   };
 
   if (mode === "done" && selectedMerchant) {
@@ -38,10 +64,10 @@ const QRScanner = () => {
           { label: t("Merchant", "মার্চেন্ট"), value: selectedMerchant.name },
           { label: t("Category", "ক্যাটাগরি"), value: selectedMerchant.category },
           { label: t("Amount", "পরিমাণ"), value: `৳${Number(amount).toLocaleString()}` },
-          { label: t("Transaction ID", "লেনদেন আইডি"), value: `QR${Date.now().toString().slice(-8)}`, copyable: true },
+          { label: t("Transaction ID", "লেনদেন আইডি"), value: txData?.id?.slice(0, 8) || "N/A", copyable: true },
           { label: t("Date", "তারিখ"), value: new Date().toLocaleDateString() },
         ]}
-        primaryAction={{ label: t("Done", "সম্পন্ন"), onClick: () => { setMode("scan"); setAmount(""); setSelectedMerchant(null); } }}
+        primaryAction={{ label: t("Done", "সম্পন্ন"), onClick: () => { setMode("scan"); setAmount(""); setSelectedMerchant(null); setTxData(null); } }}
         secondaryAction={{ label: t("Back to Home", "হোমে ফিরুন"), onClick: () => navigate("/") }}
       />
     );
@@ -62,8 +88,9 @@ const QRScanner = () => {
               <label className="text-sm font-medium">{t("Amount (৳)", "পরিমাণ (৳)")}</label>
               <Input type="number" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} className="text-2xl font-bold h-14 text-center" />
             </div>
-            <Button className="w-full gradient-primary text-primary-foreground h-12" disabled={!amount} onClick={() => setMode("done")}>
-              {t("Pay", "পে করুন")} ৳{amount || "0"}
+            {wallet && <p className="text-xs text-muted-foreground text-center">{t("Balance", "ব্যালেন্স")}: ৳{wallet.balance.toLocaleString()}</p>}
+            <Button className="w-full gradient-primary text-primary-foreground h-12" disabled={!amount || qrPayment.isPending} onClick={handlePay}>
+              {qrPayment.isPending ? t("Processing...", "প্রক্রিয়াকরণ...") : `${t("Pay", "পে করুন")} ৳${amount || "0"}`}
             </Button>
           </CardContent>
         </Card>
@@ -78,16 +105,13 @@ const QRScanner = () => {
         <p className="text-muted-foreground text-sm">{t("Scan to pay any merchant", "যেকোনো মার্চেন্টে পে করতে স্ক্যান করুন")}</p>
       </div>
 
-      {/* Scanner Area */}
       <Card className="overflow-hidden">
         <div className="relative aspect-square max-h-[300px] bg-gradient-to-b from-[hsl(240,10%,10%)] to-[hsl(240,10%,15%)] flex items-center justify-center">
-          {/* Scanner frame */}
           <div className="relative h-48 w-48">
             <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-white rounded-tl-lg" />
             <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-white rounded-tr-lg" />
             <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-white rounded-bl-lg" />
             <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-white rounded-br-lg" />
-            {/* Scanning line animation */}
             <div className="absolute left-2 right-2 h-0.5 bg-primary animate-bounce" style={{ top: "50%" }} />
           </div>
           <div className="absolute bottom-4 flex gap-4">
@@ -100,17 +124,15 @@ const QRScanner = () => {
         </CardContent>
       </Card>
 
-      {/* Search Merchant */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input placeholder={t("Search merchant...", "মার্চেন্ট খুঁজুন...")} value={merchantId} onChange={(e) => setMerchantId(e.target.value)} className="pl-10" />
       </div>
 
-      {/* Recent Merchants */}
       <div>
         <h2 className="font-display font-semibold mb-3">{t("Recent Merchants", "সাম্প্রতিক মার্চেন্ট")}</h2>
         <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
-          {recentMerchants.map((m) => (
+          {recentMerchants.filter(m => m.name.toLowerCase().includes(merchantId.toLowerCase())).map((m) => (
             <button key={m.id} onClick={() => handleMerchantSelect(m)} className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-card hover:shadow-md transition-all">
               <span className="text-2xl">{m.icon}</span>
               <span className="text-xs font-medium text-center">{m.name}</span>

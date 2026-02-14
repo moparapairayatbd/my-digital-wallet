@@ -659,3 +659,218 @@ export function useReferrals() {
     enabled: !!user,
   });
 }
+
+export function useQRPayment() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ merchantName, category, amount }: { merchantName: string; category: string; amount: number }) => {
+      if (!user) throw new Error("Not authenticated");
+      const { data: wallet } = await supabase.from("wallets").select("*").eq("user_id", user.id).single();
+      if (!wallet) throw new Error("Wallet not found");
+      if (wallet.balance < amount) throw new Error("Insufficient balance");
+
+      await supabase.from("wallets").update({ balance: wallet.balance - amount }).eq("user_id", user.id);
+
+      const { data: tx } = await supabase
+        .from("transactions")
+        .insert({
+          user_id: user.id,
+          type: "merchant" as const,
+          amount,
+          description: `QR payment to ${merchantName}`,
+          recipient_name: merchantName,
+          category,
+        })
+        .select()
+        .single();
+      return tx;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["wallet"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    },
+  });
+}
+
+export function useEducationPayment() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ institutionName, amount }: { institutionName: string; amount: number }) => {
+      if (!user) throw new Error("Not authenticated");
+      const { data: wallet } = await supabase.from("wallets").select("*").eq("user_id", user.id).single();
+      if (!wallet) throw new Error("Wallet not found");
+      if (wallet.balance < amount) throw new Error("Insufficient balance");
+
+      await supabase.from("wallets").update({ balance: wallet.balance - amount }).eq("user_id", user.id);
+
+      const { data: tx } = await supabase
+        .from("transactions")
+        .insert({
+          user_id: user.id,
+          type: "bill_pay" as const,
+          amount,
+          description: `Education fee: ${institutionName}`,
+          recipient_name: institutionName,
+          category: "education",
+        })
+        .select()
+        .single();
+      return tx;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["wallet"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    },
+  });
+}
+
+export function useDonation() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ categoryName, amount }: { categoryName: string; amount: number }) => {
+      if (!user) throw new Error("Not authenticated");
+      const { data: wallet } = await supabase.from("wallets").select("*").eq("user_id", user.id).single();
+      if (!wallet) throw new Error("Wallet not found");
+      if (wallet.balance < amount) throw new Error("Insufficient balance");
+
+      await supabase.from("wallets").update({ balance: wallet.balance - amount }).eq("user_id", user.id);
+
+      const { data: tx } = await supabase
+        .from("transactions")
+        .insert({
+          user_id: user.id,
+          type: "send" as const,
+          amount,
+          description: `Donation: ${categoryName}`,
+          recipient_name: categoryName,
+          category: "donation",
+        })
+        .select()
+        .single();
+      return tx;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["wallet"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    },
+  });
+}
+
+export function useRemittance() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ senderName, foreignAmount, foreignCurrency, bdtAmount, rate }: {
+      senderName: string; foreignAmount: number; foreignCurrency: string; bdtAmount: number; rate: number;
+    }) => {
+      if (!user) throw new Error("Not authenticated");
+      const { data: wallet } = await supabase.from("wallets").select("*").eq("user_id", user.id).single();
+      if (!wallet) throw new Error("Wallet not found");
+
+      await supabase.from("wallets").update({ balance: wallet.balance + bdtAmount }).eq("user_id", user.id);
+
+      const { data: tx } = await supabase
+        .from("transactions")
+        .insert({
+          user_id: user.id,
+          type: "remittance" as const,
+          amount: bdtAmount,
+          description: `Remittance from ${senderName} (${foreignCurrency} ${foreignAmount})`,
+          sender_name: senderName,
+          metadata: { foreign_amount: foreignAmount, foreign_currency: foreignCurrency, rate },
+        })
+        .select()
+        .single();
+      return tx;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["wallet"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    },
+  });
+}
+
+export function useCurrencyAccounts() {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ["currency_accounts", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("currency_accounts")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user,
+  });
+}
+
+export function useCreateCurrencyAccount() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ currency, currencyName, accountNumber }: {
+      currency: string; currencyName: string; accountNumber: string;
+    }) => {
+      if (!user) throw new Error("Not authenticated");
+      const { data, error } = await supabase
+        .from("currency_accounts")
+        .insert({
+          user_id: user.id,
+          currency,
+          currency_name: currencyName,
+          account_number: accountNumber,
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["currency_accounts"] });
+    },
+  });
+}
+
+export function usePayLaterActivate() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ merchantName, amount, installments, monthly }: {
+      merchantName: string; amount: number; installments: number; monthly: number;
+    }) => {
+      if (!user) throw new Error("Not authenticated");
+
+      const { data: tx } = await supabase
+        .from("transactions")
+        .insert({
+          user_id: user.id,
+          type: "merchant" as const,
+          amount,
+          description: `Pay Later: ${merchantName} (${installments}x ৳${monthly})`,
+          recipient_name: merchantName,
+          category: "pay_later",
+          metadata: { installments, monthly, merchant: merchantName },
+        })
+        .select()
+        .single();
+      return tx;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    },
+  });
+}

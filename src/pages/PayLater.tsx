@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { CreditCard, ShoppingBag, Clock, ChevronRight, CheckCircle2, Calendar } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import TransactionSuccess from "@/components/TransactionSuccess";
 import { useNavigate } from "react-router-dom";
+import { usePayLaterActivate, useTransactions } from "@/hooks/useWallet";
+import { toast } from "sonner";
 
 const payLaterOffers = [
   { id: "pl1", merchant: "Daraz", icon: "🛒", amount: 5000, installments: 3, monthly: 1700, interest: "0%", available: true },
@@ -13,15 +14,34 @@ const payLaterOffers = [
   { id: "pl4", merchant: "Electronics Hub", icon: "📱", amount: 25000, installments: 6, monthly: 4350, interest: "4%", available: false },
 ];
 
-const activeInstallments = [
-  { id: "ai1", merchant: "Daraz", total: 5000, paid: 3400, remaining: 1600, nextDue: "2026-03-01", status: "active" },
-];
-
 const PayLater = () => {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const [selectedOffer, setSelectedOffer] = useState<typeof payLaterOffers[0] | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [txData, setTxData] = useState<any>(null);
+  const payLater = usePayLaterActivate();
+  const { data: transactions } = useTransactions();
+
+  const activeInstallments = (transactions || [])
+    .filter(tx => tx.category === "pay_later")
+    .slice(0, 5);
+
+  const handleActivate = async (offer: typeof payLaterOffers[0]) => {
+    try {
+      const tx = await payLater.mutateAsync({
+        merchantName: offer.merchant,
+        amount: offer.amount,
+        installments: offer.installments,
+        monthly: offer.monthly,
+      });
+      setSelectedOffer(offer);
+      setTxData(tx);
+      setShowSuccess(true);
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
 
   if (showSuccess && selectedOffer) {
     return (
@@ -33,9 +53,9 @@ const PayLater = () => {
           { label: t("Total Amount", "মোট পরিমাণ"), value: `৳${selectedOffer.amount.toLocaleString()}` },
           { label: t("Installments", "কিস্তি"), value: `${selectedOffer.installments}x ৳${selectedOffer.monthly.toLocaleString()}` },
           { label: t("Interest", "সুদ"), value: selectedOffer.interest },
-          { label: t("First Payment", "প্রথম পেমেন্ট"), value: "Mar 01, 2026" },
+          { label: t("Transaction ID", "লেনদেন আইডি"), value: txData?.id?.slice(0, 8), copyable: true },
         ]}
-        primaryAction={{ label: t("Done", "সম্পন্ন"), onClick: () => { setShowSuccess(false); setSelectedOffer(null); } }}
+        primaryAction={{ label: t("Done", "সম্পন্ন"), onClick: () => { setShowSuccess(false); setSelectedOffer(null); setTxData(null); } }}
         secondaryAction={{ label: t("Back to Home", "হোমে ফিরুন"), onClick: () => navigate("/") }}
         gradient="gradient-secondary"
       />
@@ -49,7 +69,6 @@ const PayLater = () => {
         <p className="text-muted-foreground text-sm">{t("Buy now, pay in installments", "এখন কিনুন, কিস্তিতে পরিশোধ করুন")}</p>
       </div>
 
-      {/* Credit Limit */}
       <Card className="gradient-secondary text-primary-foreground border-0">
         <CardContent className="p-5">
           <p className="text-sm opacity-80">{t("Available Credit", "উপলব্ধ ক্রেডিট")}</p>
@@ -61,36 +80,26 @@ const PayLater = () => {
         </CardContent>
       </Card>
 
-      {/* Active Installments */}
       {activeInstallments.length > 0 && (
         <div>
-          <h2 className="font-display font-semibold mb-3">{t("Active Installments", "সক্রিয় কিস্তি")}</h2>
+          <h2 className="font-display font-semibold mb-3">{t("Active Plans", "সক্রিয় পরিকল্পনা")}</h2>
           {activeInstallments.map((inst) => (
             <Card key={inst.id}>
               <CardContent className="p-4">
                 <div className="flex justify-between items-start">
                   <div>
-                    <p className="font-semibold text-sm">{inst.merchant}</p>
-                    <p className="text-xs text-muted-foreground">{t("Next due", "পরবর্তী দেয়")}: {inst.nextDue}</p>
+                    <p className="font-semibold text-sm">{inst.recipient_name}</p>
+                    <p className="text-xs text-muted-foreground">{new Date(inst.created_at).toLocaleDateString()}</p>
                   </div>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-nitro-green/10 text-nitro-green font-medium">{t("Active", "সক্রিয়")}</span>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-600 font-medium">{t("Active", "সক্রিয়")}</span>
                 </div>
-                <div className="mt-3">
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-muted-foreground">{t("Progress", "অগ্রগতি")}</span>
-                    <span className="font-medium">৳{inst.paid.toLocaleString()} / ৳{inst.total.toLocaleString()}</span>
-                  </div>
-                  <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <div className="h-full gradient-success rounded-full" style={{ width: `${(inst.paid / inst.total) * 100}%` }} />
-                  </div>
-                </div>
+                <p className="text-sm font-medium mt-2">৳{Number(inst.amount).toLocaleString()}</p>
               </CardContent>
             </Card>
           ))}
         </div>
       )}
 
-      {/* Available Offers */}
       <div>
         <h2 className="font-display font-semibold mb-3">{t("Available Offers", "উপলব্ধ অফার")}</h2>
         <div className="space-y-3">
@@ -105,7 +114,7 @@ const PayLater = () => {
                   </div>
                   <div className="text-right">
                     <p className="font-display font-bold text-sm">৳{offer.amount.toLocaleString()}</p>
-                    <Button size="sm" className="mt-1 h-7 text-xs" disabled={!offer.available} onClick={() => { setSelectedOffer(offer); setShowSuccess(true); }}>
+                    <Button size="sm" className="mt-1 h-7 text-xs" disabled={!offer.available || payLater.isPending} onClick={() => handleActivate(offer)}>
                       {t("Activate", "সক্রিয়")}
                     </Button>
                   </div>
