@@ -132,6 +132,7 @@ export type Database = {
           online_enabled: boolean | null
           spending_limit: number | null
           status: Database["public"]["Enums"]["card_status"]
+          strowallet_card_id: string | null
           updated_at: string
           user_id: string
         }
@@ -150,6 +151,7 @@ export type Database = {
           online_enabled?: boolean | null
           spending_limit?: number | null
           status?: Database["public"]["Enums"]["card_status"]
+          strowallet_card_id?: string | null
           updated_at?: string
           user_id: string
         }
@@ -168,6 +170,7 @@ export type Database = {
           online_enabled?: boolean | null
           spending_limit?: number | null
           status?: Database["public"]["Enums"]["card_status"]
+          strowallet_card_id?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -317,6 +320,7 @@ export type Database = {
           pin_hash: string | null
           referral_code: string | null
           referred_by: string | null
+          strowallet_customer_id: string | null
           two_factor_enabled: boolean | null
           updated_at: string
           user_id: string
@@ -335,6 +339,7 @@ export type Database = {
           pin_hash?: string | null
           referral_code?: string | null
           referred_by?: string | null
+          strowallet_customer_id?: string | null
           two_factor_enabled?: boolean | null
           updated_at?: string
           user_id: string
@@ -353,6 +358,7 @@ export type Database = {
           pin_hash?: string | null
           referral_code?: string | null
           referred_by?: string | null
+          strowallet_customer_id?: string | null
           two_factor_enabled?: boolean | null
           updated_at?: string
           user_id?: string
