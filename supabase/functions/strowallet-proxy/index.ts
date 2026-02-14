@@ -116,7 +116,23 @@ Deno.serve(async (req) => {
       body: urlParams.toString(),
     });
 
-    const apiData = await apiRes.json();
+    const contentType = apiRes.headers.get("content-type") || "";
+    const rawText = await apiRes.text();
+
+    console.log(`Strowallet raw response for ${action} (status ${apiRes.status}):`, rawText.substring(0, 500));
+
+    if (!contentType.includes("application/json")) {
+      console.error("Strowallet returned non-JSON:", contentType, rawText.substring(0, 300));
+      return new Response(JSON.stringify({ 
+        error: `Strowallet API returned non-JSON response (status ${apiRes.status}). This may indicate an invalid API key, wrong endpoint, or server issue.`,
+        status_code: apiRes.status,
+      }), {
+        status: 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const apiData = JSON.parse(rawText);
     console.log(`Strowallet response for ${action}:`, JSON.stringify(apiData));
 
     return new Response(JSON.stringify(apiData), {
