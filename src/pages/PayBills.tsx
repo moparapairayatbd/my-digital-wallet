@@ -4,7 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { billCategories } from "@/data/mockData";
-import { Zap, Flame, Droplets, Wifi, Phone, Tv, CreditCard, CheckCircle, ArrowLeft } from "lucide-react";
+import { Zap, Flame, Droplets, Wifi, Phone, Tv, CreditCard, CheckCircle, ArrowLeft, Loader2 } from "lucide-react";
+import { usePayBill, useWallet } from "@/hooks/useWallet";
+import { toast } from "sonner";
 
 const iconMap: Record<string, any> = { Zap, Flame, Droplets, Wifi, Phone, Tv, CreditCard };
 
@@ -14,8 +16,25 @@ const PayBills = () => {
   const [accountNo, setAccountNo] = useState("");
   const [amount, setAmount] = useState("");
   const [done, setDone] = useState(false);
+  const payBill = usePayBill();
+  const { data: wallet } = useWallet();
 
   const selectedCat = billCategories.find(c => c.id === selected);
+
+  const handlePayBill = async () => {
+    if (!selectedCat || !accountNo || !amount) return;
+    try {
+      await payBill.mutateAsync({
+        billerName: selectedCat.name,
+        category: selectedCat.id,
+        accountNumber: accountNo,
+        amount: Number(amount),
+      });
+      setDone(true);
+    } catch (err: any) {
+      toast.error(err.message || "Bill payment failed");
+    }
+  };
 
   if (done && selectedCat) {
     return (
@@ -53,7 +72,9 @@ const PayBills = () => {
               <label className="text-sm font-medium">{t("Amount (৳)", "পরিমাণ (৳)")}</label>
               <Input type="number" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} className="text-xl font-bold h-12" />
             </div>
-            <Button className="w-full gradient-primary text-primary-foreground" disabled={!accountNo || !amount} onClick={() => setDone(true)}>
+            <p className="text-xs text-muted-foreground">{t("Available Balance", "উপলব্ধ ব্যালেন্স")}: ৳{wallet?.balance ? Number(wallet.balance).toLocaleString() : "0"}</p>
+            <Button className="w-full gradient-primary text-primary-foreground" disabled={!accountNo || !amount || payBill.isPending} onClick={handlePayBill}>
+              {payBill.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               {t("Pay Bill", "বিল পরিশোধ করুন")}
             </Button>
           </CardContent>

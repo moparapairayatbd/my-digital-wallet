@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { operators } from "@/data/mockData";
-import { Phone, CheckCircle } from "lucide-react";
+import { Phone, CheckCircle, Loader2 } from "lucide-react";
+import { useRecharge, useWallet } from "@/hooks/useWallet";
 import { toast } from "sonner";
 
 const packages = [
@@ -23,6 +24,19 @@ const MobileRecharge = () => {
   const [operator, setOperator] = useState("");
   const [amount, setAmount] = useState("");
   const [done, setDone] = useState(false);
+  const recharge = useRecharge();
+  const { data: wallet } = useWallet();
+
+  const handleRecharge = async () => {
+    if (!phone || !amount) return;
+    const opName = operators.find(o => o.id === operator)?.name || operator || "Unknown";
+    try {
+      await recharge.mutateAsync({ phoneNumber: phone, operator: opName, amount: Number(amount) });
+      setDone(true);
+    } catch (err: any) {
+      toast.error(err.message || "Recharge failed");
+    }
+  };
 
   if (done) {
     return (
@@ -86,8 +100,10 @@ const MobileRecharge = () => {
             <label className="text-sm font-medium">{t("Amount (৳)", "পরিমাণ (৳)")}</label>
             <Input type="number" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} className="text-xl font-bold h-12" />
           </div>
-          <Button className="w-full gradient-primary text-primary-foreground" disabled={!phone || !amount} onClick={() => setDone(true)}>
-            <Phone className="h-4 w-4 mr-2" /> {t("Recharge Now", "এখনই রিচার্জ করুন")}
+          <p className="text-xs text-muted-foreground">{t("Available Balance", "উপলব্ধ ব্যালেন্স")}: ৳{wallet?.balance ? Number(wallet.balance).toLocaleString() : "0"}</p>
+          <Button className="w-full gradient-primary text-primary-foreground" disabled={!phone || !amount || recharge.isPending} onClick={handleRecharge}>
+            {recharge.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Phone className="h-4 w-4 mr-2" />}
+            {t("Recharge Now", "এখনই রিচার্জ করুন")}
           </Button>
         </CardContent>
       </Card>

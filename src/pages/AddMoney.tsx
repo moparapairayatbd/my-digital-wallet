@@ -3,8 +3,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Building2, CreditCard, Landmark, CheckCircle } from "lucide-react";
+import { Building2, CreditCard, Landmark, CheckCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { useAddMoney, useWallet } from "@/hooks/useWallet";
 
 const sources = [
   { id: "bank", name: "Bank Account", nameBn: "ব্যাংক অ্যাকাউন্ট", icon: Landmark },
@@ -17,6 +18,19 @@ const AddMoney = () => {
   const [selected, setSelected] = useState("");
   const [amount, setAmount] = useState("");
   const [done, setDone] = useState(false);
+  const addMoney = useAddMoney();
+  const { data: wallet } = useWallet();
+
+  const handleAddMoney = async () => {
+    if (!amount || !selected) return;
+    try {
+      const sourceName = sources.find(s => s.id === selected)?.name || selected;
+      await addMoney.mutateAsync({ amount: Number(amount), source: sourceName });
+      setDone(true);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to add money");
+    }
+  };
 
   if (done) {
     return (
@@ -26,6 +40,7 @@ const AddMoney = () => {
         </div>
         <h2 className="font-display text-xl font-bold">{t("Money Added!", "টাকা যোগ হয়েছে!")}</h2>
         <p className="text-muted-foreground mt-1">৳{Number(amount).toLocaleString()}</p>
+        <p className="text-xs text-muted-foreground mt-1">{t("New Balance", "নতুন ব্যালেন্স")}: ৳{wallet?.balance ? Number(wallet.balance).toLocaleString() : "..."}</p>
         <Button className="mt-6 gradient-primary text-primary-foreground" onClick={() => { setDone(false); setAmount(""); setSelected(""); }}>
           {t("Add More", "আরও যোগ করুন")}
         </Button>
@@ -77,7 +92,8 @@ const AddMoney = () => {
               <label className="text-sm font-medium">{t("Amount (৳)", "পরিমাণ (৳)")}</label>
               <Input type="number" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} className="text-xl font-bold h-12" />
             </div>
-            <Button className="w-full gradient-primary text-primary-foreground" disabled={!amount} onClick={() => setDone(true)}>
+            <Button className="w-full gradient-primary text-primary-foreground" disabled={!amount || addMoney.isPending} onClick={handleAddMoney}>
+              {addMoney.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               {t("Add Money", "টাকা যোগ করুন")}
             </Button>
           </CardContent>
