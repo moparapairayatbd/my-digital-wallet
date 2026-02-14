@@ -1,18 +1,58 @@
 import { useState } from "react";
-import { ArrowLeft, Fingerprint, Key, Monitor, Shield, ShieldAlert, ShieldCheck, Smartphone } from "lucide-react";
+import { ArrowLeft, Fingerprint, Key, Monitor, Shield, ShieldAlert, ShieldCheck, Smartphone, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { activeSessions, loginHistory } from "@/data/mockData";
+import { useActiveSessions, useProfile } from "@/hooks/useWallet";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
 const SecurityCenter = () => {
   const { t } = useLanguage();
-  const [biometric, setBiometric] = useState(true);
-  const [twoFactor, setTwoFactor] = useState(true);
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const { data: profile, isLoading: profileLoading } = useProfile();
+  const { data: sessions, isLoading: sessionsLoading } = useActiveSessions();
+  const [togglingBiometric, setTogglingBiometric] = useState(false);
+  const [toggling2FA, setToggling2FA] = useState(false);
+
+  const handleToggleBiometric = async (val: boolean) => {
+    if (!user) return;
+    setTogglingBiometric(true);
+    await supabase.from("profiles").update({ biometric_enabled: val }).eq("user_id", user.id);
+    queryClient.invalidateQueries({ queryKey: ["profile", user.id] });
+    setTogglingBiometric(false);
+    toast.success(val ? t("Biometric enabled", "বায়োমেট্রিক সক্রিয়") : t("Biometric disabled", "বায়োমেট্রিক নিষ্ক্রিয়"));
+  };
+
+  const handleToggle2FA = async (val: boolean) => {
+    if (!user) return;
+    setToggling2FA(true);
+    await supabase.from("profiles").update({ two_factor_enabled: val }).eq("user_id", user.id);
+    queryClient.invalidateQueries({ queryKey: ["profile", user.id] });
+    setToggling2FA(false);
+    toast.success(val ? t("2FA enabled", "২FA সক্রিয়") : t("2FA disabled", "২FA নিষ্ক্রিয়"));
+  };
+
+  const handleEndSession = async (sessionId: string) => {
+    if (!user) return;
+    await supabase.from("active_sessions").delete().eq("id", sessionId).eq("user_id", user.id);
+    queryClient.invalidateQueries({ queryKey: ["active_sessions", user.id] });
+    toast.success(t("Session ended", "সেশন শেষ হয়েছে"));
+  };
+
+  const securityScore = [
+    profile?.biometric_enabled ? 25 : 0,
+    profile?.two_factor_enabled ? 25 : 0,
+    profile?.kyc_status === "verified" ? 25 : 0,
+    25, // base for having a PIN
+  ].reduce((a, b) => a + b, 0);
 
   return (
     <div className="max-w-lg mx-auto space-y-6 page-enter">
@@ -21,21 +61,23 @@ const SecurityCenter = () => {
         <h1 className="text-xl font-display font-bold">{t("Security Center", "নিরাপত্তা কেন্দ্র")}</h1>
       </div>
 
-      {/* Security Score */}
-      <Card className="gradient-success text-primary-foreground border-0">
-        <CardContent className="p-5 flex items-center gap-4">
-          <div className="h-16 w-16 rounded-full bg-white/20 flex items-center justify-center">
-            <ShieldCheck className="h-8 w-8" />
-          </div>
-          <div>
-            <p className="text-sm opacity-80">{t("Security Score", "নিরাপত্তা স্কোর")}</p>
-            <p className="text-3xl font-display font-bold">92/100</p>
-            <p className="text-xs opacity-70">{t("Excellent", "চমৎকার")}</p>
-          </div>
-        </CardContent>
-      </Card>
+      {profileLoading ? (
+        <Skeleton className="h-24 w-full rounded-xl" />
+      ) : (
+        <Card className="gradient-success text-primary-foreground border-0">
+          <CardContent className="p-5 flex items-center gap-4">
+            <div className="h-16 w-16 rounded-full bg-white/20 flex items-center justify-center">
+              <ShieldCheck className="h-8 w-8" />
+            </div>
+            <div>
+              <p className="text-sm opacity-80">{t("Security Score", "নিরাপত্তা স্কোর")}</p>
+              <p className="text-3xl font-display font-bold">{securityScore}/100</p>
+              <p className="text-xs opacity-70">{securityScore >= 75 ? t("Excellent", "চমৎকার") : securityScore >= 50 ? t("Good", "ভালো") : t("Needs Improvement", "উন্নতি প্রয়োজন")}</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Security Settings */}
       <Card>
         <CardContent className="p-0 divide-y divide-border">
           <div className="flex items-center justify-between p-4 touch-target">
@@ -43,10 +85,10 @@ const SecurityCenter = () => {
               <Key className="h-5 w-5 text-nitro-orange" />
               <div>
                 <p className="text-sm font-medium">{t("Change PIN", "PIN পরিবর্তন")}</p>
-                <p className="text-xs text-muted-foreground">{t("Last changed 30 days ago", "৩০ দিন আগে পরিবর্তিত")}</p>
+                <p className="text-xs text-muted-foreground">{t("Update your security PIN", "আপনার নিরাপত্তা PIN আপডেট করুন")}</p>
               </div>
             </div>
-            <Button variant="outline" size="sm" onClick={() => toast.info("PIN change flow would open here")}>
+            <Button variant="outline" size="sm" onClick={() => toast.info(t("PIN change coming soon", "PIN পরিবর্তন শীঘ্রই আসছে"))}>
               {t("Change", "পরিবর্তন")}
             </Button>
           </div>
@@ -58,7 +100,7 @@ const SecurityCenter = () => {
                 <p className="text-xs text-muted-foreground">{t("Fingerprint & Face ID", "ফিঙ্গারপ্রিন্ট ও ফেস আইডি")}</p>
               </div>
             </div>
-            <Switch checked={biometric} onCheckedChange={setBiometric} />
+            <Switch checked={!!profile?.biometric_enabled} disabled={togglingBiometric} onCheckedChange={handleToggleBiometric} />
           </div>
           <div className="flex items-center justify-between p-4 touch-target">
             <div className="flex items-center gap-3">
@@ -68,62 +110,48 @@ const SecurityCenter = () => {
                 <p className="text-xs text-muted-foreground">{t("SMS verification", "এসএমএস যাচাইকরণ")}</p>
               </div>
             </div>
-            <Switch checked={twoFactor} onCheckedChange={setTwoFactor} />
+            <Switch checked={!!profile?.two_factor_enabled} disabled={toggling2FA} onCheckedChange={handleToggle2FA} />
           </div>
         </CardContent>
       </Card>
 
-      {/* Active Sessions */}
       <div>
         <h2 className="font-display font-semibold mb-3">{t("Active Sessions", "সক্রিয় সেশন")}</h2>
         <Card>
           <CardContent className="p-0 divide-y divide-border">
-            {activeSessions.map((session) => (
-              <div key={session.id} className="flex items-center justify-between p-4 touch-target">
-                <div className="flex items-center gap-3">
-                  {session.device.includes("Mac") ? <Monitor className="h-5 w-5 text-muted-foreground" /> : <Smartphone className="h-5 w-5 text-muted-foreground" />}
-                  <div>
-                    <p className="text-sm font-medium">{session.device}</p>
-                    <p className="text-xs text-muted-foreground">{session.os} • {session.location}</p>
+            {sessionsLoading ? (
+              Array.from({ length: 2 }).map((_, i) => (
+                <div key={i} className="p-4"><Skeleton className="h-10 w-full" /></div>
+              ))
+            ) : sessions && sessions.length > 0 ? (
+              sessions.map((session) => (
+                <div key={session.id} className="flex items-center justify-between p-4 touch-target">
+                  <div className="flex items-center gap-3">
+                    {session.device.toLowerCase().includes("mobile") ? <Smartphone className="h-5 w-5 text-muted-foreground" /> : <Monitor className="h-5 w-5 text-muted-foreground" />}
+                    <div>
+                      <p className="text-sm font-medium">{session.device}</p>
+                      <p className="text-xs text-muted-foreground">{session.location || "Unknown"} • {new Date(session.last_active).toLocaleDateString()}</p>
+                    </div>
                   </div>
+                  {session.is_current ? (
+                    <Badge className="gradient-success text-primary-foreground border-0 text-[10px]">{t("Current", "বর্তমান")}</Badge>
+                  ) : (
+                    <Button variant="outline" size="sm" className="text-xs h-7" onClick={() => handleEndSession(session.id)}>
+                      {t("End", "শেষ")}
+                    </Button>
+                  )}
                 </div>
-                {session.current ? (
-                  <Badge className="gradient-success text-primary-foreground border-0 text-[10px]">{t("Current", "বর্তমান")}</Badge>
-                ) : (
-                  <Button variant="outline" size="sm" className="text-xs h-7" onClick={() => toast.success("Session ended")}>
-                    {t("End", "শেষ")}
-                  </Button>
-                )}
+              ))
+            ) : (
+              <div className="p-8 text-center text-muted-foreground text-sm">
+                {t("No active sessions", "কোনো সক্রিয় সেশন নেই")}
               </div>
-            ))}
+            )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Login History */}
-      <div>
-        <h2 className="font-display font-semibold mb-3">{t("Login History", "লগইন ইতিহাস")}</h2>
-        <Card>
-          <CardContent className="p-0 divide-y divide-border">
-            {loginHistory.map((entry) => (
-              <div key={entry.id} className="flex items-center justify-between p-4 touch-target">
-                <div>
-                  <p className="text-sm font-medium">{entry.device}</p>
-                  <p className="text-xs text-muted-foreground">{entry.date}</p>
-                </div>
-                <Badge variant={entry.status === "blocked" ? "destructive" : "outline"} className="text-[10px]">
-                  {entry.status === "blocked" ? (
-                    <><ShieldAlert className="h-3 w-3 mr-1" /> {t("Blocked", "ব্লক")}</>
-                  ) : t("Success", "সফল")}
-                </Badge>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Block Account */}
-      <Button variant="destructive" className="w-full h-12" onClick={() => toast.info("Account block flow would open here")}>
+      <Button variant="destructive" className="w-full h-12" onClick={() => toast.info(t("Account block coming soon", "অ্যাকাউন্ট ব্লক শীঘ্রই আসছে"))}>
         {t("Block My Account", "আমার অ্যাকাউন্ট ব্লক করুন")}
       </Button>
     </div>

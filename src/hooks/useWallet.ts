@@ -531,3 +531,131 @@ export function useCreateMoneyRequest() {
     },
   });
 }
+
+export function useMerchantPayment() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ merchantId, merchantName, amount }: { merchantId: string; merchantName: string; amount: number }) => {
+      if (!user) throw new Error("Not authenticated");
+      const { data: wallet } = await supabase.from("wallets").select("*").eq("user_id", user.id).single();
+      if (!wallet) throw new Error("Wallet not found");
+      if (wallet.balance < amount) throw new Error("Insufficient balance");
+
+      await supabase.from("wallets").update({ balance: wallet.balance - amount }).eq("user_id", user.id);
+
+      const { data: tx } = await supabase
+        .from("transactions")
+        .insert({
+          user_id: user.id,
+          type: "merchant" as const,
+          amount,
+          description: `Payment to ${merchantName}`,
+          recipient_name: merchantName,
+          recipient_phone: merchantId,
+          category: "merchant",
+        })
+        .select()
+        .single();
+      return tx;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["wallet"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    },
+  });
+}
+
+export function useBankTransfer() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ bankName, accountNumber, amount }: { bankName: string; accountNumber: string; amount: number }) => {
+      if (!user) throw new Error("Not authenticated");
+      const { data: wallet } = await supabase.from("wallets").select("*").eq("user_id", user.id).single();
+      if (!wallet) throw new Error("Wallet not found");
+      if (wallet.balance < amount) throw new Error("Insufficient balance");
+
+      await supabase.from("wallets").update({ balance: wallet.balance - amount }).eq("user_id", user.id);
+
+      const { data: tx } = await supabase
+        .from("transactions")
+        .insert({
+          user_id: user.id,
+          type: "send" as const,
+          amount,
+          description: `Bank transfer to ${bankName}`,
+          recipient_name: bankName,
+          recipient_phone: accountNumber,
+          category: "bank_transfer",
+        })
+        .select()
+        .single();
+      return tx;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["wallet"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    },
+  });
+}
+
+export function useRewardHistory() {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ["reward_history", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("reward_history")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user,
+  });
+}
+
+export function useActiveSessions() {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ["active_sessions", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("active_sessions")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("last_active", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user,
+  });
+}
+
+export function useReferrals() {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ["referrals", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("referrals")
+        .select("*")
+        .eq("referrer_id", user.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user,
+  });
+}
