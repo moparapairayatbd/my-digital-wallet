@@ -48,6 +48,7 @@ const Welcome = () => {
   const [current, setCurrent] = useState(0);
   const [slideDir, setSlideDir] = useState<"in" | "out">("in");
   const [dragX, setDragX] = useState(0);
+  const [bounce, setBounce] = useState(false);
   const touchStartX = useRef(0);
   const isDragging = useRef(false);
 
@@ -62,14 +63,21 @@ const Welcome = () => {
     navigate("/auth", { replace: true });
   }, [navigate]);
 
+  const haptic = useCallback(() => {
+    if (navigator.vibrate) navigator.vibrate(8);
+    setBounce(true);
+    setTimeout(() => setBounce(false), 350);
+  }, []);
+
   const goTo = useCallback((index: number) => {
     if (index < 0 || index >= slides.length || index === current) return;
+    haptic();
     setSlideDir("out");
     setTimeout(() => {
       setCurrent(index);
       setSlideDir("in");
     }, 200);
-  }, [current]);
+  }, [current, haptic]);
 
   const goNext = () => {
     if (current === slides.length - 1) { finish(); return; }
@@ -143,6 +151,12 @@ const Welcome = () => {
             from { width: 0%; }
             to   { width: 100%; }
           }
+          @keyframes hapticPop {
+            0% { transform: scale(0.93); }
+            40% { transform: scale(1.03); }
+            70% { transform: scale(0.99); }
+            100% { transform: scale(1); }
+          }
         `}</style>
       </div>
     );
@@ -172,9 +186,12 @@ const Welcome = () => {
           className={`flex flex-col items-center text-center ${
             dragX !== 0
               ? ""
-              : `transition-all duration-300 ${slideDir === "in" ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-8"}`
-          }`}
-          style={dragX !== 0 ? { transform: `translateX(${dragX}px)`, opacity: Math.max(0.3, 1 - Math.abs(dragX) / 300) } : undefined}
+              : `transition-all duration-300 ${slideDir === "in" ? "opacity-100 translate-x-0 scale-100" : "opacity-0 -translate-x-8 scale-95"}`
+          } ${bounce ? "animate-[hapticPop_0.35s_ease-out]" : ""}`}
+          style={dragX !== 0 ? {
+            transform: `translateX(${dragX}px) scale(${Math.max(0.92, 1 - Math.abs(dragX) / 600)}) rotate(${dragX * 0.02}deg)`,
+            opacity: Math.max(0.3, 1 - Math.abs(dragX) / 300),
+          } : undefined}
         >
           {/* Illustration */}
           <div className="relative mb-10">
