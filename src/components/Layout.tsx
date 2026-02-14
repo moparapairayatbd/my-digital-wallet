@@ -3,15 +3,17 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { BottomNav } from "@/components/BottomNav";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { useProfile } from "@/hooks/useWallet";
+import { useProfile, useNotifications } from "@/hooks/useWallet";
 import { Globe, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Link } from "react-router-dom";
 
 export function Layout({ children }: { children: ReactNode }) {
   const { lang, toggleLang } = useLanguage();
   const { data: profile } = useProfile();
+  const { data: notifications } = useNotifications();
+  const unreadCount = notifications?.filter((n) => !n.is_read).length || 0;
 
   const initials = profile?.full_name
     ? profile.full_name.split(" ").map((n: string) => n[0]).join("").toUpperCase()
@@ -48,11 +50,16 @@ export function Layout({ children }: { children: ReactNode }) {
                 <Link to="/notifications">
                   <Button variant="ghost" size="icon" className="relative h-9 w-9">
                     <Bell className="h-4 w-4" />
-                    <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary pulse-dot" />
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center pulse-dot">
+                        {unreadCount > 9 ? "9+" : unreadCount}
+                      </span>
+                    )}
                   </Button>
                 </Link>
                 <Link to="/profile">
                   <Avatar className="h-8 w-8 cursor-pointer">
+                    {profile?.avatar_url ? <AvatarImage src={profile.avatar_url} alt={profile.full_name} /> : null}
                     <AvatarFallback className="gradient-primary text-primary-foreground text-xs font-bold">
                       {initials}
                     </AvatarFallback>
