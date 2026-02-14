@@ -2,38 +2,38 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Send, Shield, Wallet, Gift, ArrowRight, ChevronRight } from "lucide-react";
+import { ArrowRight, ChevronRight } from "lucide-react";
+import onboardingWallet from "@/assets/onboarding-wallet.png";
+import onboardingTransfer from "@/assets/onboarding-transfer.png";
+import onboardingSecurity from "@/assets/onboarding-security.png";
+import onboardingRewards from "@/assets/onboarding-rewards.png";
 
 const SPLASH_DURATION = 2400;
 
 const slides = [
   {
-    icon: Wallet,
-    gradient: "from-primary to-accent",
+    image: onboardingWallet,
     title: "Your Digital Wallet",
     titleBn: "আপনার ডিজিটাল ওয়ালেট",
     desc: "Send, receive, and manage money instantly from your phone.",
     descBn: "ফোন থেকে তাৎক্ষণিকভাবে টাকা পাঠান, গ্রহণ করুন এবং পরিচালনা করুন।",
   },
   {
-    icon: Send,
-    gradient: "from-secondary to-[hsl(45,95%,55%)]",
+    image: onboardingTransfer,
     title: "Lightning-Fast Transfers",
     titleBn: "বিদ্যুৎ-গতির ট্রান্সফার",
     desc: "Pay bills, recharge mobile, and transfer to anyone in seconds.",
     descBn: "বিল পরিশোধ করুন, মোবাইল রিচার্জ এবং যেকোনো ব্যক্তিকে সেকেন্ডে ট্রান্সফার করুন।",
   },
   {
-    icon: Shield,
-    gradient: "from-[hsl(152,68%,45%)] to-[hsl(175,70%,42%)]",
+    image: onboardingSecurity,
     title: "Bank-Grade Security",
     titleBn: "ব্যাংক-গ্রেড নিরাপত্তা",
     desc: "Your money is protected with advanced encryption and biometric locks.",
     descBn: "আপনার টাকা উন্নত এনক্রিপশন এবং বায়োমেট্রিক লক দিয়ে সুরক্ষিত।",
   },
   {
-    icon: Gift,
-    gradient: "from-[hsl(280,65%,55%)] to-primary",
+    image: onboardingRewards,
     title: "Earn Rewards Daily",
     titleBn: "প্রতিদিন রিওয়ার্ড অর্জন করুন",
     desc: "Get cashback, loyalty points, and exclusive offers with every transaction.",
@@ -113,7 +113,6 @@ const Welcome = () => {
 
   // ── Onboarding Carousel ──
   const slide = slides[current];
-  const Icon = slide.icon;
 
   return (
     <div className="min-h-screen flex flex-col bg-background safe-top safe-bottom">
@@ -134,9 +133,14 @@ const Welcome = () => {
               : "opacity-0 -translate-x-8"
           }`}
         >
-          {/* Icon circle */}
-          <div className={`h-28 w-28 rounded-full bg-gradient-to-br ${slide.gradient} flex items-center justify-center shadow-xl mb-10`}>
-            <Icon className="h-12 w-12 text-primary-foreground" strokeWidth={1.5} />
+          {/* Illustration */}
+          <div className="relative mb-10">
+            <div className="absolute inset-0 rounded-full bg-primary/5 blur-3xl scale-125" />
+            <img
+              src={slide.image}
+              alt={slide.title}
+              className="relative h-56 w-56 object-contain float-animation drop-shadow-2xl"
+            />
           </div>
 
           <h2 className="font-display font-bold text-2xl leading-tight max-w-xs">
