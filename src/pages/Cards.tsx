@@ -391,7 +391,14 @@ const Cards = () => {
                     try {
                       await freezeCard.mutateAsync({ cardId: selectedCard.id, strowalletCardId: selectedCard.strowallet_card_id, freeze: !selectedCard.frozen });
                       toast(selectedCard.frozen ? "Card unfrozen" : "Card frozen");
-                    } catch (e: any) { toast.error(e.message); }
+                    } catch (e: any) {
+                      const msg = e?.message || "Failed to update card";
+                      if (msg.includes("untrusted source IP")) {
+                        toast.error(t("Service temporarily unavailable", "সেবা সাময়িকভাবে অনুপলব্ধ"));
+                      } else {
+                        toast.error(msg);
+                      }
+                    }
                   } else {
                     toast(selectedCard.frozen ? "Card unfrozen" : "Card frozen");
                   }
@@ -500,7 +507,16 @@ const Cards = () => {
                   toast.success(t("Card funded successfully!", "কার্ড সফলভাবে ফান্ড করা হয়েছে!"));
                   setShowFundDialog(false);
                 } catch (e: any) {
-                  toast.error(e.message || "Failed to fund card");
+                  const msg = e?.message || "Failed to fund card";
+                  if (msg.includes("Insufficient balance")) {
+                    toast.error(t("Insufficient wallet balance", "অপর্যাপ্ত ওয়ালেট ব্যালেন্স"));
+                  } else if (msg.includes("untrusted source IP")) {
+                    toast.error(t("Service temporarily unavailable. Please try again later.", "সেবা সাময়িকভাবে অনুপলব্ধ। অনুগ্রহ করে পরে আবার চেষ্টা করুন।"));
+                  } else if (msg.includes("at least")) {
+                    toast.error(t("Minimum funding amount is $3 USD", "সর্বনিম্ন ফান্ডিং পরিমাণ $৩ USD"));
+                  } else {
+                    toast.error(msg);
+                  }
                 }
               }}
             >

@@ -515,7 +515,11 @@ export function useFundCard() {
         body: JSON.stringify({ action: "fund-card", card_id: strowalletCardId, amount }),
       });
       const result = await res.json();
-      if (result.error) throw new Error(result.error);
+      if (!res.ok || result.error || result.success === false) {
+        const msg = result.error || result.message || "Failed to fund card";
+        const details = result.errors ? Object.values(result.errors).flat().join(", ") : "";
+        throw new Error(details ? `${msg}: ${details}` : msg);
+      }
 
       await supabase.from("wallets").update({ balance: wallet.balance - amount }).eq("user_id", user.id);
 
@@ -558,6 +562,10 @@ export function useFreezeCard() {
         body: JSON.stringify({ action: "freeze-card", card_id: strowalletCardId, freeze_action: freeze ? "freeze" : "unfreeze" }),
       });
       const result = await res.json();
+      if (!res.ok || result.error || result.success === false) {
+        const msg = result.error || result.message || "Failed to update card status";
+        throw new Error(msg);
+      }
 
       // Update local status
       await supabase
