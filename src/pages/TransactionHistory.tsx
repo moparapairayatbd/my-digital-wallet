@@ -1,13 +1,16 @@
-import { useState } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { useTransactions } from "@/hooks/useWallet";
-import { ArrowUpRight, ArrowDownLeft, ArrowLeft } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowUpRight, ArrowDownLeft, ArrowLeft, RefreshCw, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 
+const PAGE_SIZE = 20;
 const filters = ["all", "send", "receive", "bill_pay", "cashout", "add_money", "recharge"] as const;
 
 function groupByDate(txs: any[]) {
@@ -22,14 +25,115 @@ function groupByDate(txs: any[]) {
 
 const TransactionHistory = () => {
   const { t } = useLanguage();
-  const { data: transactions, isLoading } = useTransactions();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [filter, setFilter] = useState<string>("all");
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
-  const filtered = filter === "all" ? (transactions || []) : (transactions || []).filter((tx: any) => tx.type === filter);
-  const grouped = groupByDate(filtered);
+  // Pull-to-refresh state
+  const [pullY, setPullY] = useState(0);
+  const [pulling, setPulling] = useState(false);
+  const touchStartY = useRef(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+    refetch,
+  } = useInfiniteQuery({
+    queryKey: ["transactions-infinite", user?.id, filter],
+    queryFn: async ({ pageParam = 0 }) => {
+      if (!user) return [];
+      let query = supabase
+        .from("transactions")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .range(pageParam, pageParam + PAGE_SIZE - 1);
+
+      if (filter !== "all") {
+        query = query.eq("type", filter as any);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    },
+    getNextPageParam: (lastPage, allPages) => {
+      if (lastPage.length < PAGE_SIZE) return undefined;
+      return allPages.flat().length;
+    },
+    initialPageParam: 0,
+    enabled: !!user,
+  });
+
+  const allTransactions = data?.pages.flat() || [];
+  const grouped = groupByDate(allTransactions);
+
+  // Infinite scroll via IntersectionObserver
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  // Pull-to-refresh touch handlers
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const scrollTop = containerRef.current?.scrollTop || 0;
+    if (scrollTop <= 0) {
+      touchStartY.current = e.touches[0].clientY;
+      setPulling(true);
+    }
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!pulling) return;
+    const diff = e.touches[0].clientY - touchStartY.current;
+    if (diff > 0) {
+      setPullY(Math.min(diff * 0.4, 80));
+    }
+  }, [pulling]);
+
+  const handleTouchEnd = useCallback(async () => {
+    if (pullY > 50) {
+      setIsRefreshing(true);
+      await refetch();
+      queryClient.invalidateQueries({ queryKey: ["wallet", user?.id] });
+      setIsRefreshing(false);
+    }
+    setPullY(0);
+    setPulling(false);
+  }, [pullY, refetch, queryClient, user?.id]);
 
   return (
-    <div className="max-w-2xl mx-auto page-enter space-y-6">
+    <div
+      ref={containerRef}
+      className="max-w-2xl mx-auto page-enter space-y-6"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Pull-to-refresh indicator */}
+      <div
+        className="flex justify-center items-center overflow-hidden transition-all duration-200"
+        style={{ height: pullY > 0 ? pullY : 0, opacity: pullY > 10 ? 1 : 0 }}
+      >
+        <RefreshCw className={`h-5 w-5 text-primary ${isRefreshing || pullY > 50 ? "animate-spin" : ""}`} style={{ transform: `rotate(${pullY * 3}deg)` }} />
+      </div>
+
       <div className="flex items-center gap-3">
         <Link to="/"><Button variant="ghost" size="icon" className="h-9 w-9"><ArrowLeft className="h-5 w-5" /></Button></Link>
         <h1 className="text-xl font-display font-bold">{t("Transaction History", "লেনদেনের ইতিহাস")}</h1>
@@ -88,6 +192,17 @@ const TransactionHistory = () => {
               </Card>
             </div>
           ))}
+
+          {/* Infinite scroll sentinel */}
+          <div ref={sentinelRef} className="flex justify-center py-4">
+            {isFetchingNextPage ? (
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            ) : hasNextPage ? (
+              <p className="text-xs text-muted-foreground">{t("Scroll for more", "আরো দেখতে স্ক্রোল করুন")}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground">{t("No more transactions", "আর কোনো লেনদেন নেই")}</p>
+            )}
+          </div>
         </div>
       ) : (
         <div className="text-center py-12 text-muted-foreground">
