@@ -1,15 +1,15 @@
 import { useState } from "react";
-import { CreditCard, Plus, Eye, EyeOff, Snowflake, Unlock, Copy, Settings, Wifi, Shield, ChevronRight, ChevronLeft, User, MapPin, FileText, Palette, CheckCircle2, Truck, Loader2, DollarSign } from "lucide-react";
+import { CreditCard, Plus, Eye, EyeOff, Snowflake, Unlock, Copy, Ban, Wifi, Shield, ChevronRight, ChevronLeft, User, FileText, Palette, CheckCircle2, Truck, Loader2, DollarSign, ArrowDownToLine, History, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "@/components/ui/sonner";
 import TransactionSuccess from "@/components/TransactionSuccess";
 import { useNavigate } from "react-router-dom";
-import { useCards, useCreateCard, useProfile, useFreezeCard, useFundCard, useCardDetails, useWallet } from "@/hooks/useWallet";
+import { useCards, useCreateCard, useProfile, useFreezeCard, useFundCard, useCardDetails, useWallet, useWithdrawFromCard, useBlockCard, useCardTransactions } from "@/hooks/useWallet";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const cardDesigns = [
@@ -91,6 +91,9 @@ const Cards = () => {
   const freezeCard = useFreezeCard();
   const fundCard = useFundCard();
   const cardDetails = useCardDetails();
+  const withdrawFromCard = useWithdrawFromCard();
+  const blockCard = useBlockCard();
+  const cardTransactions = useCardTransactions();
 
   const [showDetails, setShowDetails] = useState<Record<string, boolean>>({});
 
@@ -104,6 +107,11 @@ const Cards = () => {
   const [createdCard, setCreatedCard] = useState<DisplayCard | null>(null);
   const [showFundDialog, setShowFundDialog] = useState(false);
   const [fundAmount, setFundAmount] = useState("");
+  const [showWithdrawDialog, setShowWithdrawDialog] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [showBlockDialog, setShowBlockDialog] = useState(false);
+  const [showTransactions, setShowTransactions] = useState(false);
+  const [cardTxns, setCardTxns] = useState<any[]>([]);
 
   const { data: wallet } = useWallet();
 
@@ -386,11 +394,11 @@ const Cards = () => {
                   {showDetails[selectedCard.id] ? <EyeOff className="h-5 w-5 text-primary" /> : <Eye className="h-5 w-5 text-primary" />}
                   <span className="text-xs">{showDetails[selectedCard.id] ? t("Hide Details", "বিবরণ লুকান") : t("Show Details", "বিবরণ দেখুন")}</span>
                 </Button>
-                <Button variant="outline" className="flex flex-col items-center gap-2 h-auto py-4" disabled={freezeCard.isPending} onClick={async () => {
+                <Button variant="outline" className="flex flex-col items-center gap-2 h-auto py-4" disabled={freezeCard.isPending || selectedCard.status === "blocked"} onClick={async () => {
                   if (selectedCard.strowallet_card_id) {
                     try {
                       await freezeCard.mutateAsync({ cardId: selectedCard.id, strowalletCardId: selectedCard.strowallet_card_id, freeze: !selectedCard.frozen });
-                      toast(selectedCard.frozen ? "Card unfrozen" : "Card frozen");
+                      toast(selectedCard.frozen ? t("Card unfrozen", "কার্ড আনফ্রিজ") : t("Card frozen", "কার্ড ফ্রিজ"));
                     } catch (e: any) {
                       const msg = e?.message || "Failed to update card";
                       if (msg.includes("untrusted source IP")) {
@@ -400,19 +408,46 @@ const Cards = () => {
                       }
                     }
                   } else {
-                    toast(selectedCard.frozen ? "Card unfrozen" : "Card frozen");
+                    toast(selectedCard.frozen ? t("Card unfrozen", "কার্ড আনফ্রিজ") : t("Card frozen", "কার্ড ফ্রিজ"));
                   }
                 }}>
                   {selectedCard.frozen ? <Unlock className="h-5 w-5 text-nitro-blue" /> : <Snowflake className="h-5 w-5 text-nitro-blue" />}
                   <span className="text-xs">{selectedCard.frozen ? t("Unfreeze", "আনফ্রিজ") : t("Freeze", "ফ্রিজ")}</span>
                 </Button>
-                <Button variant="outline" className="flex flex-col items-center gap-2 h-auto py-4" onClick={() => { navigator.clipboard.writeText(selectedCard.number); toast("Card number copied"); }}>
-                  <Copy className="h-5 w-5 text-nitro-green" />
+                <Button variant="outline" className="flex flex-col items-center gap-2 h-auto py-4" onClick={() => { setFundAmount(""); setShowFundDialog(true); }} disabled={selectedCard.status === "blocked"}>
+                  <DollarSign className="h-5 w-5 text-nitro-green" />
+                  <span className="text-xs">{t("Fund Card", "কার্ড ফান্ড")}</span>
+                </Button>
+                <Button variant="outline" className="flex flex-col items-center gap-2 h-auto py-4" onClick={() => { setWithdrawAmount(""); setShowWithdrawDialog(true); }} disabled={selectedCard.status === "blocked"}>
+                  <ArrowDownToLine className="h-5 w-5 text-nitro-orange" />
+                  <span className="text-xs">{t("Withdraw", "উত্তোলন")}</span>
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <Button variant="outline" className="flex flex-col items-center gap-2 h-auto py-4" onClick={() => { navigator.clipboard.writeText(selectedCard.number); toast(t("Card number copied", "কার্ড নম্বর কপি হয়েছে")); }}>
+                  <Copy className="h-5 w-5 text-muted-foreground" />
                   <span className="text-xs">{t("Copy Number", "নম্বর কপি")}</span>
                 </Button>
-                <Button variant="outline" className="flex flex-col items-center gap-2 h-auto py-4" onClick={() => { setFundAmount(""); setShowFundDialog(true); }}>
-                  <DollarSign className="h-5 w-5 text-nitro-orange" />
-                  <span className="text-xs">{t("Fund Card", "কার্ড ফান্ড")}</span>
+                <Button variant="outline" className="flex flex-col items-center gap-2 h-auto py-4" onClick={async () => {
+                  if (selectedCard.strowallet_card_id) {
+                    try {
+                      const result = await cardTransactions.mutateAsync({ strowalletCardId: selectedCard.strowallet_card_id });
+                      setCardTxns(result.data || result.transactions || result || []);
+                      setShowTransactions(true);
+                    } catch (e: any) {
+                      toast.error(e?.message || t("Failed to fetch transactions", "লেনদেন আনতে ব্যর্থ"));
+                    }
+                  } else {
+                    toast.info(t("No transaction history available", "কোনো লেনদেনের ইতিহাস নেই"));
+                  }
+                }}>
+                  {cardTransactions.isPending ? <Loader2 className="h-5 w-5 animate-spin text-primary" /> : <History className="h-5 w-5 text-primary" />}
+                  <span className="text-xs">{t("Transactions", "লেনদেন")}</span>
+                </Button>
+                <Button variant="outline" className="flex flex-col items-center gap-2 h-auto py-4 border-destructive/30 hover:bg-destructive/5" onClick={() => setShowBlockDialog(true)} disabled={selectedCard.status === "blocked"}>
+                  <Ban className="h-5 w-5 text-destructive" />
+                  <span className="text-xs text-destructive">{selectedCard.status === "blocked" ? t("Blocked", "ব্লক") : t("Block Card", "কার্ড ব্লক")}</span>
                 </Button>
               </div>
 
@@ -466,6 +501,9 @@ const Cards = () => {
               <DollarSign className="h-5 w-5 text-primary" />
               {t("Fund Card", "কার্ড ফান্ড করুন")}
             </DialogTitle>
+            <DialogDescription>
+              {t("Add funds from your wallet to this card", "আপনার ওয়ালেট থেকে এই কার্ডে ফান্ড যোগ করুন")}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             {selectedCard && (
@@ -524,6 +562,156 @@ const Cards = () => {
               {t("Fund Card", "কার্ড ফান্ড করুন")}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Withdraw Dialog */}
+      <Dialog open={showWithdrawDialog} onOpenChange={setShowWithdrawDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ArrowDownToLine className="h-5 w-5 text-primary" />
+              {t("Withdraw from Card", "কার্ড থেকে উত্তোলন")}
+            </DialogTitle>
+            <DialogDescription>
+              {t("Withdraw funds from your card back to your wallet", "আপনার কার্ড থেকে ওয়ালেটে ফান্ড উত্তোলন করুন")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {selectedCard && (
+              <div className="p-3 rounded-lg bg-muted/50 text-sm">
+                <p className="text-muted-foreground">{t("Card", "কার্ড")}</p>
+                <p className="font-medium font-mono">{selectedCard.number}</p>
+              </div>
+            )}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">{t("Amount (USD)", "পরিমাণ (USD)")}</label>
+              <Input
+                type="number"
+                min="3"
+                placeholder="Enter amount"
+                value={withdrawAmount}
+                onChange={(e) => setWithdrawAmount(e.target.value)}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {t("Minimum withdrawal: $3 USD. Funds will be added to your wallet.", "সর্বনিম্ন উত্তোলন: $৩ USD। ফান্ড আপনার ওয়ালেটে যোগ হবে।")}
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowWithdrawDialog(false)}>
+              {t("Cancel", "বাতিল")}
+            </Button>
+            <Button
+              disabled={!withdrawAmount || Number(withdrawAmount) < 3 || withdrawFromCard.isPending}
+              onClick={async () => {
+                if (!selectedCard) return;
+                try {
+                  await withdrawFromCard.mutateAsync({
+                    cardId: selectedCard.id,
+                    strowalletCardId: selectedCard.strowallet_card_id || "",
+                    amount: Number(withdrawAmount),
+                  });
+                  toast.success(t("Withdrawal successful! Funds added to wallet.", "উত্তোলন সফল! ফান্ড ওয়ালেটে যোগ হয়েছে।"));
+                  setShowWithdrawDialog(false);
+                } catch (e: any) {
+                  const msg = e?.message || "Failed to withdraw";
+                  toast.error(msg);
+                }
+              }}
+            >
+              {withdrawFromCard.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              {t("Withdraw", "উত্তোলন করুন")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Block Card Confirmation Dialog */}
+      <Dialog open={showBlockDialog} onOpenChange={setShowBlockDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              {t("Block Card", "কার্ড ব্লক করুন")}
+            </DialogTitle>
+            <DialogDescription>
+              {t("This action is permanent and cannot be undone. Your card will be permanently deactivated.", "এই কাজটি স্থায়ী এবং পূর্বাবস্থায় ফেরানো যাবে না। আপনার কার্ড স্থায়ীভাবে নিষ্ক্রিয় হবে।")}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedCard && (
+            <div className="p-3 rounded-lg bg-destructive/10 text-sm border border-destructive/20">
+              <p className="text-muted-foreground">{t("Card to block", "ব্লক করার কার্ড")}</p>
+              <p className="font-medium font-mono">{selectedCard.number}</p>
+              <p className="text-xs text-destructive mt-1">{t("⚠️ Please withdraw any remaining balance before blocking.", "⚠️ ব্লক করার আগে অনুগ্রহ করে অবশিষ্ট ব্যালেন্স উত্তোলন করুন।")}</p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBlockDialog(false)}>
+              {t("Cancel", "বাতিল")}
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={blockCard.isPending}
+              onClick={async () => {
+                if (!selectedCard) return;
+                try {
+                  await blockCard.mutateAsync({
+                    cardId: selectedCard.id,
+                    strowalletCardId: selectedCard.strowallet_card_id || "",
+                  });
+                  toast.success(t("Card blocked permanently", "কার্ড স্থায়ীভাবে ব্লক করা হয়েছে"));
+                  setShowBlockDialog(false);
+                } catch (e: any) {
+                  toast.error(e?.message || t("Failed to block card", "কার্ড ব্লক করতে ব্যর্থ"));
+                }
+              }}
+            >
+              {blockCard.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              {t("Block Card Permanently", "স্থায়ীভাবে কার্ড ব্লক করুন")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Card Transactions Dialog */}
+      <Dialog open={showTransactions} onOpenChange={setShowTransactions}>
+        <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="h-5 w-5 text-primary" />
+              {t("Card Transactions", "কার্ড লেনদেন")}
+            </DialogTitle>
+            <DialogDescription>
+              {t("Recent transactions on this card", "এই কার্ডের সাম্প্রতিক লেনদেন")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            {Array.isArray(cardTxns) && cardTxns.length > 0 ? (
+              cardTxns.map((txn: any, i: number) => (
+                <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{txn.narrative || txn.description || txn.merchant || t("Transaction", "লেনদেন")}</p>
+                    <p className="text-xs text-muted-foreground">{txn.date || txn.created_at || txn.createdAt || ""}</p>
+                    <p className="text-xs text-muted-foreground capitalize">{txn.type || txn.channel || ""}</p>
+                  </div>
+                  <div className="text-right ml-3">
+                    <p className={`text-sm font-semibold ${txn.type === "credit" ? "text-nitro-green" : ""}`}>
+                      {txn.type === "credit" ? "+" : "-"}${Number(txn.amount || 0).toFixed(2)}
+                    </p>
+                    <p className={`text-xs capitalize ${txn.status === "success" ? "text-nitro-green" : txn.status === "failed" ? "text-destructive" : "text-muted-foreground"}`}>
+                      {txn.status || ""}
+                    </p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8">
+                <History className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">{t("No transactions found", "কোনো লেনদেন পাওয়া যায়নি")}</p>
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

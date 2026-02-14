@@ -104,6 +104,22 @@ Deno.serve(async (req) => {
         formData.card_id = params.card_id;
         break;
       }
+      case "withdraw-from-card": {
+        endpoint = `${STROWALLET_BASE}/withdraw-from-card/`;
+        formData.card_id = params.card_id;
+        formData.amount = String(params.amount);
+        break;
+      }
+      case "block-card": {
+        endpoint = `${STROWALLET_BASE}/block-card/`;
+        formData.card_id = params.card_id;
+        break;
+      }
+      case "card-withdraw-status": {
+        endpoint = `${STROWALLET_BASE}/getcard_withdrawstatus/`;
+        formData.card_id = params.card_id;
+        break;
+      }
       default:
         return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), {
           status: 400,

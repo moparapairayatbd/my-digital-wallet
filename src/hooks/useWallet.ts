@@ -605,6 +605,122 @@ export function useCardDetails() {
   });
 }
 
+export function useWithdrawFromCard() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ cardId, strowalletCardId, amount }: { cardId: string; strowalletCardId: string; amount: number }) => {
+      if (!user) throw new Error("Not authenticated");
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const session = (await supabase.auth.getSession()).data.session;
+      if (!session) throw new Error("No session");
+
+      const res = await fetch(`${supabaseUrl}/functions/v1/strowallet-proxy`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ action: "withdraw-from-card", card_id: strowalletCardId, amount }),
+      });
+      const result = await res.json();
+      if (!res.ok || result.error || result.success === false) {
+        const msg = result.error || result.message || "Failed to withdraw from card";
+        const details = result.errors ? Object.values(result.errors).flat().join(", ") : "";
+        throw new Error(details ? `${msg}: ${details}` : msg);
+      }
+
+      // Credit wallet with withdrawn amount
+      const { data: wallet } = await supabase.from("wallets").select("*").eq("user_id", user.id).single();
+      if (wallet) {
+        await supabase.from("wallets").update({ balance: wallet.balance + amount }).eq("user_id", user.id);
+      }
+
+      await supabase.from("transactions").insert({
+        user_id: user.id,
+        type: "receive" as const,
+        amount,
+        description: `Withdraw from card ending ${strowalletCardId.slice(-4)}`,
+        category: "card_withdraw",
+      });
+
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["wallet"] });
+      queryClient.invalidateQueries({ queryKey: ["cards"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    },
+  });
+}
+
+export function useBlockCard() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ cardId, strowalletCardId }: { cardId: string; strowalletCardId: string }) => {
+      if (!user) throw new Error("Not authenticated");
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const session = (await supabase.auth.getSession()).data.session;
+      if (!session) throw new Error("No session");
+
+      const res = await fetch(`${supabaseUrl}/functions/v1/strowallet-proxy`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ action: "block-card", card_id: strowalletCardId }),
+      });
+      const result = await res.json();
+      if (!res.ok || result.error || result.success === false) {
+        const msg = result.error || result.message || "Failed to block card";
+        throw new Error(msg);
+      }
+
+      await supabase.from("cards").update({ status: "blocked" }).eq("id", cardId);
+
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cards"] });
+    },
+  });
+}
+
+export function useCardTransactions() {
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({ strowalletCardId }: { strowalletCardId: string }) => {
+      if (!user) throw new Error("Not authenticated");
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const session = (await supabase.auth.getSession()).data.session;
+      if (!session) throw new Error("No session");
+
+      const res = await fetch(`${supabaseUrl}/functions/v1/strowallet-proxy`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ action: "card-transactions", card_id: strowalletCardId }),
+      });
+      const result = await res.json();
+      if (!res.ok || result.error || result.success === false) {
+        const msg = result.error || result.message || "Failed to fetch transactions";
+        throw new Error(msg);
+      }
+      return result;
+    },
+  });
+}
+
 export function useNotifications() {
   const { user } = useAuth();
 
