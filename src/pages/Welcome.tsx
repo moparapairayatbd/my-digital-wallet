@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -47,6 +47,9 @@ const Welcome = () => {
   const [phase, setPhase] = useState<"splash" | "onboarding">("splash");
   const [current, setCurrent] = useState(0);
   const [slideDir, setSlideDir] = useState<"in" | "out">("in");
+  const [dragX, setDragX] = useState(0);
+  const touchStartX = useRef(0);
+  const isDragging = useRef(false);
 
   // Splash → onboarding
   useEffect(() => {
@@ -59,16 +62,50 @@ const Welcome = () => {
     navigate("/auth", { replace: true });
   }, [navigate]);
 
-  const goNext = () => {
-    if (current === slides.length - 1) {
-      finish();
-      return;
-    }
+  const goTo = useCallback((index: number) => {
+    if (index < 0 || index >= slides.length || index === current) return;
     setSlideDir("out");
     setTimeout(() => {
-      setCurrent((p) => p + 1);
+      setCurrent(index);
       setSlideDir("in");
-    }, 250);
+    }, 200);
+  }, [current]);
+
+  const goNext = () => {
+    if (current === slides.length - 1) { finish(); return; }
+    goTo(current + 1);
+  };
+
+  const goPrev = () => { goTo(current - 1); };
+
+  // Swipe handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    isDragging.current = true;
+    setDragX(0);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging.current) return;
+    const diff = e.touches[0].clientX - touchStartX.current;
+    // Resist at edges
+    if ((current === 0 && diff > 0) || (current === slides.length - 1 && diff < 0)) {
+      setDragX(diff * 0.2);
+    } else {
+      setDragX(diff);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    isDragging.current = false;
+    const threshold = 50;
+    if (dragX < -threshold) {
+      if (current < slides.length - 1) goTo(current + 1);
+      else finish();
+    } else if (dragX > threshold) {
+      goPrev();
+    }
+    setDragX(0);
   };
 
   // ── Splash Screen ──
@@ -124,14 +161,20 @@ const Welcome = () => {
       </div>
 
       {/* Slide content */}
-      <div className="flex-1 flex flex-col items-center justify-center px-8">
+      <div
+        className="flex-1 flex flex-col items-center justify-center px-8 touch-none select-none"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
         <div
           key={current}
-          className={`flex flex-col items-center text-center transition-all duration-300 ${
-            slideDir === "in"
-              ? "opacity-100 translate-x-0"
-              : "opacity-0 -translate-x-8"
+          className={`flex flex-col items-center text-center ${
+            dragX !== 0
+              ? ""
+              : `transition-all duration-300 ${slideDir === "in" ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-8"}`
           }`}
+          style={dragX !== 0 ? { transform: `translateX(${dragX}px)`, opacity: Math.max(0.3, 1 - Math.abs(dragX) / 300) } : undefined}
         >
           {/* Illustration */}
           <div className="relative mb-10">
