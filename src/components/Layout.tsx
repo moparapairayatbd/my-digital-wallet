@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { BottomNav } from "@/components/BottomNav";
@@ -69,9 +70,11 @@ export function Layout({ children }: { children: ReactNode }) {
             </div>
           </header>
           <main className="flex-1 p-4 pb-24 md:pb-4 md:p-6 overflow-auto scroll-smooth">
-            <div className="page-enter">
-              {children}
-            </div>
+            <ErrorBoundary>
+              <div className="page-enter">
+                {children}
+              </div>
+            </ErrorBoundary>
           </main>
         </div>
       </div>
