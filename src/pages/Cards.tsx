@@ -471,7 +471,7 @@ const Cards = () => {
               <label className="text-sm font-medium">{t("Amount (USD)", "পরিমাণ (USD)")}</label>
               <Input
                 type="number"
-                min="1"
+                min="3"
                 placeholder="Enter amount"
                 value={fundAmount}
                 onChange={(e) => setFundAmount(e.target.value)}
@@ -488,7 +488,7 @@ const Cards = () => {
               {t("Cancel", "বাতিল")}
             </Button>
             <Button
-              disabled={!fundAmount || Number(fundAmount) <= 0 || fundCard.isPending}
+              disabled={!fundAmount || Number(fundAmount) < 3 || fundCard.isPending}
               onClick={async () => {
                 if (!selectedCard) return;
                 try {
