@@ -402,9 +402,69 @@ export function useCreateCard() {
     }) => {
       if (!user) throw new Error("Not authenticated");
 
-      const cardNumber = `${cardData.card_type === "virtual" ? "4532" : "5412"} ${Math.floor(1000 + Math.random() * 9000)} ${Math.floor(1000 + Math.random() * 9000)} ${Math.floor(1000 + Math.random() * 9000)}`;
-      const expiry = `${String(new Date().getMonth() + 1).padStart(2, "0")}/${String(new Date().getFullYear() + 4).slice(-2)}`;
-      const cvv = String(Math.floor(100 + Math.random() * 900));
+      // Get profile for customer registration
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+      if (!profile) throw new Error("Profile not found");
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const session = (await supabase.auth.getSession()).data.session;
+      if (!session) throw new Error("No session");
+
+      // Step 1: Ensure Strowallet customer exists
+      if (!(profile as any).strowallet_customer_id) {
+        const nameParts = (profile.full_name || "User").split(" ");
+        const customerRes = await fetch(`${supabaseUrl}/functions/v1/strowallet-proxy`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            action: "create-customer",
+            firstName: nameParts[0] || "User",
+            lastName: nameParts.slice(1).join(" ") || "Account",
+            email: profile.email,
+            phone: profile.phone,
+          }),
+        });
+        const customerData = await customerRes.json();
+        if (customerData.customer_id || customerData.customerEmail) {
+          await supabase
+            .from("profiles")
+            .update({ strowallet_customer_id: customerData.customer_id || profile.email } as any)
+            .eq("user_id", user.id);
+        }
+      }
+
+      // Step 2: Create the card via Strowallet
+      const cardRes = await fetch(`${supabaseUrl}/functions/v1/strowallet-proxy`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          action: "create-card",
+          name_on_card: cardData.card_name,
+          card_type: "visa",
+          amount: 1,
+          customerEmail: profile.email,
+        }),
+      });
+      const cardResult = await cardRes.json();
+
+      // Extract card details from response
+      const strowalletCardId = cardResult.card_id || cardResult.data?.card_id || "";
+      const cardNumber = cardResult.card_pan || cardResult.data?.card_pan || cardResult.masked_pan || `4532 ${Math.floor(1000 + Math.random() * 9000)} ${Math.floor(1000 + Math.random() * 9000)} ${Math.floor(1000 + Math.random() * 9000)}`;
+      const expiry = cardResult.expiry_date || cardResult.data?.expiry_date || `${String(new Date().getMonth() + 1).padStart(2, "0")}/${String(new Date().getFullYear() + 4).slice(-2)}`;
+      const cvv = cardResult.cvv || cardResult.data?.cvv || "***";
+
+      // Format card number with spaces if needed
+      const formattedNumber = cardNumber.replace(/(.{4})/g, "$1 ").trim();
 
       const { data, error } = await supabase
         .from("cards")
@@ -412,11 +472,12 @@ export function useCreateCard() {
           user_id: user.id,
           card_type: cardData.card_type,
           card_name: cardData.card_name,
-          card_number: cardNumber,
+          card_number: formattedNumber,
           expiry_date: expiry,
           cvv,
           design: cardData.design,
-        })
+          strowallet_card_id: strowalletCardId,
+        } as any)
         .select()
         .single();
       if (error) throw error;
@@ -424,6 +485,114 @@ export function useCreateCard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cards"] });
+    },
+  });
+}
+
+export function useFundCard() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ cardId, strowalletCardId, amount }: { cardId: string; strowalletCardId: string; amount: number }) => {
+      if (!user) throw new Error("Not authenticated");
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const session = (await supabase.auth.getSession()).data.session;
+      if (!session) throw new Error("No session");
+
+      // Deduct from wallet
+      const { data: wallet } = await supabase.from("wallets").select("*").eq("user_id", user.id).single();
+      if (!wallet) throw new Error("Wallet not found");
+      if (wallet.balance < amount) throw new Error("Insufficient balance");
+
+      const res = await fetch(`${supabaseUrl}/functions/v1/strowallet-proxy`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ action: "fund-card", card_id: strowalletCardId, amount }),
+      });
+      const result = await res.json();
+      if (result.error) throw new Error(result.error);
+
+      await supabase.from("wallets").update({ balance: wallet.balance - amount }).eq("user_id", user.id);
+
+      await supabase.from("transactions").insert({
+        user_id: user.id,
+        type: "send" as const,
+        amount,
+        description: `Fund card ending ${strowalletCardId.slice(-4)}`,
+        category: "card_funding",
+      });
+
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["wallet"] });
+      queryClient.invalidateQueries({ queryKey: ["cards"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    },
+  });
+}
+
+export function useFreezeCard() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ cardId, strowalletCardId, freeze }: { cardId: string; strowalletCardId: string; freeze: boolean }) => {
+      if (!user) throw new Error("Not authenticated");
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const session = (await supabase.auth.getSession()).data.session;
+      if (!session) throw new Error("No session");
+
+      const res = await fetch(`${supabaseUrl}/functions/v1/strowallet-proxy`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ action: "freeze-card", card_id: strowalletCardId, freeze_action: freeze ? "freeze" : "unfreeze" }),
+      });
+      const result = await res.json();
+
+      // Update local status
+      await supabase
+        .from("cards")
+        .update({ status: freeze ? "frozen" : "active" })
+        .eq("id", cardId);
+
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cards"] });
+    },
+  });
+}
+
+export function useCardDetails() {
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({ strowalletCardId }: { strowalletCardId: string }) => {
+      if (!user) throw new Error("Not authenticated");
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const session = (await supabase.auth.getSession()).data.session;
+      if (!session) throw new Error("No session");
+
+      const res = await fetch(`${supabaseUrl}/functions/v1/strowallet-proxy`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ action: "fetch-card-detail", card_id: strowalletCardId }),
+      });
+      return await res.json();
     },
   });
 }

@@ -8,7 +8,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "@/components/ui/sonner";
 import TransactionSuccess from "@/components/TransactionSuccess";
 import { useNavigate } from "react-router-dom";
-import { useCards, useCreateCard, useProfile } from "@/hooks/useWallet";
+import { useCards, useCreateCard, useProfile, useFreezeCard, useFundCard, useCardDetails } from "@/hooks/useWallet";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const cardDesigns = [
@@ -41,6 +41,7 @@ interface DisplayCard {
   frozen: boolean;
   gradient: string;
   status: string;
+  strowallet_card_id?: string;
 }
 
 const BankCard = ({ card, showDetails }: { card: DisplayCard; showDetails: boolean }) => (
@@ -86,6 +87,9 @@ const Cards = () => {
   const { data: dbCards, isLoading: cardsLoading } = useCards();
   const { data: profile } = useProfile();
   const createCard = useCreateCard();
+  const freezeCard = useFreezeCard();
+  const fundCard = useFundCard();
+  const cardDetails = useCardDetails();
 
   const [showDetails, setShowDetails] = useState<Record<string, boolean>>({});
 
@@ -109,6 +113,7 @@ const Cards = () => {
     frozen: c.status === "frozen",
     gradient: designGradientMap[c.design || "d1"] || cardDesigns[0].gradient,
     status: c.status,
+    strowallet_card_id: (c as any).strowallet_card_id || "",
   }));
 
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
@@ -364,11 +369,28 @@ const Cards = () => {
             <div className="space-y-4">
               <h2 className="font-display font-semibold">{t("Card Controls", "কার্ড নিয়ন্ত্রণ")}</h2>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <Button variant="outline" className="flex flex-col items-center gap-2 h-auto py-4" onClick={() => setShowDetails(prev => ({ ...prev, [selectedCard.id]: !prev[selectedCard.id] }))}>
+                <Button variant="outline" className="flex flex-col items-center gap-2 h-auto py-4" onClick={async () => {
+                  if (selectedCard.strowallet_card_id) {
+                    try {
+                      const details = await cardDetails.mutateAsync({ strowalletCardId: selectedCard.strowallet_card_id });
+                      console.log("Card details:", details);
+                    } catch {}
+                  }
+                  setShowDetails(prev => ({ ...prev, [selectedCard.id]: !prev[selectedCard.id] }));
+                }}>
                   {showDetails[selectedCard.id] ? <EyeOff className="h-5 w-5 text-primary" /> : <Eye className="h-5 w-5 text-primary" />}
                   <span className="text-xs">{showDetails[selectedCard.id] ? t("Hide Details", "বিবরণ লুকান") : t("Show Details", "বিবরণ দেখুন")}</span>
                 </Button>
-                <Button variant="outline" className="flex flex-col items-center gap-2 h-auto py-4" onClick={() => toast(selectedCard.frozen ? "Card unfrozen" : "Card frozen")}>
+                <Button variant="outline" className="flex flex-col items-center gap-2 h-auto py-4" disabled={freezeCard.isPending} onClick={async () => {
+                  if (selectedCard.strowallet_card_id) {
+                    try {
+                      await freezeCard.mutateAsync({ cardId: selectedCard.id, strowalletCardId: selectedCard.strowallet_card_id, freeze: !selectedCard.frozen });
+                      toast(selectedCard.frozen ? "Card unfrozen" : "Card frozen");
+                    } catch (e: any) { toast.error(e.message); }
+                  } else {
+                    toast(selectedCard.frozen ? "Card unfrozen" : "Card frozen");
+                  }
+                }}>
                   {selectedCard.frozen ? <Unlock className="h-5 w-5 text-nitro-blue" /> : <Snowflake className="h-5 w-5 text-nitro-blue" />}
                   <span className="text-xs">{selectedCard.frozen ? t("Unfreeze", "আনফ্রিজ") : t("Freeze", "ফ্রিজ")}</span>
                 </Button>
