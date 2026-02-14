@@ -33,6 +33,12 @@ Deno.serve(async (req) => {
       });
     }
 
+    console.log("Strowallet API Key info:", {
+      length: strowalletKey.length,
+      prefix: strowalletKey.substring(0, 6),
+      suffix: strowalletKey.substring(strowalletKey.length - 4),
+    });
+
     // Verify user
     const supabase = createClient(supabaseUrl, supabaseKey, {
       global: { headers: { Authorization: authHeader } },
