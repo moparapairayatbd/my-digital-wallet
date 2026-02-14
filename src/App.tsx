@@ -36,6 +36,7 @@ import Statements from "./pages/Statements";
 import SecurityCenter from "./pages/SecurityCenter";
 import HelpSupport from "./pages/HelpSupport";
 import NotFound from "./pages/NotFound";
+import Welcome from "./pages/Welcome";
 
 const queryClient = new QueryClient();
 
@@ -58,11 +59,21 @@ function AuthRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) return null;
   if (user) return <Navigate to="/" replace />;
+  // If not onboarded yet, redirect to welcome
+  if (!localStorage.getItem("nitrozix-onboarded")) return <Navigate to="/welcome" replace />;
+  return <>{children}</>;
+}
+
+function WelcomeRoute({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  if (user) return <Navigate to="/" replace />;
+  if (localStorage.getItem("nitrozix-onboarded")) return <Navigate to="/auth" replace />;
   return <>{children}</>;
 }
 
 const AppRoutes = () => (
   <Routes>
+    <Route path="/welcome" element={<WelcomeRoute><Welcome /></WelcomeRoute>} />
     <Route path="/auth" element={<AuthRoute><Auth /></AuthRoute>} />
     <Route path="/" element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
     <Route path="/send" element={<ProtectedRoute><Layout><SendMoney /></Layout></ProtectedRoute>} />
