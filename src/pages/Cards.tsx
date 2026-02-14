@@ -1,14 +1,15 @@
 import { useState } from "react";
-import { CreditCard, Plus, Eye, EyeOff, Snowflake, Unlock, Copy, Settings, Wifi, Shield, ChevronRight, ChevronLeft, User, MapPin, FileText, Palette, CheckCircle2, Truck, Loader2 } from "lucide-react";
+import { CreditCard, Plus, Eye, EyeOff, Snowflake, Unlock, Copy, Settings, Wifi, Shield, ChevronRight, ChevronLeft, User, MapPin, FileText, Palette, CheckCircle2, Truck, Loader2, DollarSign } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "@/components/ui/sonner";
 import TransactionSuccess from "@/components/TransactionSuccess";
 import { useNavigate } from "react-router-dom";
-import { useCards, useCreateCard, useProfile, useFreezeCard, useFundCard, useCardDetails } from "@/hooks/useWallet";
+import { useCards, useCreateCard, useProfile, useFreezeCard, useFundCard, useCardDetails, useWallet } from "@/hooks/useWallet";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const cardDesigns = [
@@ -101,6 +102,10 @@ const Cards = () => {
   const [cardForm, setCardForm] = useState({ name: "", phone: "", address: "" });
   const [showSuccess, setShowSuccess] = useState(false);
   const [createdCard, setCreatedCard] = useState<DisplayCard | null>(null);
+  const [showFundDialog, setShowFundDialog] = useState(false);
+  const [fundAmount, setFundAmount] = useState("");
+
+  const { data: wallet } = useWallet();
 
   // Map DB cards to display cards
   const cards: DisplayCard[] = (dbCards || []).map(c => ({
@@ -398,9 +403,9 @@ const Cards = () => {
                   <Copy className="h-5 w-5 text-nitro-green" />
                   <span className="text-xs">{t("Copy Number", "নম্বর কপি")}</span>
                 </Button>
-                <Button variant="outline" className="flex flex-col items-center gap-2 h-auto py-4">
-                  <Settings className="h-5 w-5 text-nitro-orange" />
-                  <span className="text-xs">{t("Settings", "সেটিংস")}</span>
+                <Button variant="outline" className="flex flex-col items-center gap-2 h-auto py-4" onClick={() => { setFundAmount(""); setShowFundDialog(true); }}>
+                  <DollarSign className="h-5 w-5 text-nitro-orange" />
+                  <span className="text-xs">{t("Fund Card", "কার্ড ফান্ড")}</span>
                 </Button>
               </div>
 
@@ -445,6 +450,66 @@ const Cards = () => {
           )}
         </>
       )}
+
+      {/* Fund Card Dialog */}
+      <Dialog open={showFundDialog} onOpenChange={setShowFundDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-primary" />
+              {t("Fund Card", "কার্ড ফান্ড করুন")}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {selectedCard && (
+              <div className="p-3 rounded-lg bg-muted/50 text-sm">
+                <p className="text-muted-foreground">{t("Card", "কার্ড")}</p>
+                <p className="font-medium font-mono">{selectedCard.number}</p>
+              </div>
+            )}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">{t("Amount (USD)", "পরিমাণ (USD)")}</label>
+              <Input
+                type="number"
+                min="1"
+                placeholder="Enter amount"
+                value={fundAmount}
+                onChange={(e) => setFundAmount(e.target.value)}
+              />
+            </div>
+            {wallet && (
+              <p className="text-xs text-muted-foreground">
+                {t("Wallet Balance", "ওয়ালেট ব্যালেন্স")}: ৳{Number(wallet.balance).toLocaleString()}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowFundDialog(false)}>
+              {t("Cancel", "বাতিল")}
+            </Button>
+            <Button
+              disabled={!fundAmount || Number(fundAmount) <= 0 || fundCard.isPending}
+              onClick={async () => {
+                if (!selectedCard) return;
+                try {
+                  await fundCard.mutateAsync({
+                    cardId: selectedCard.id,
+                    strowalletCardId: selectedCard.strowallet_card_id || "",
+                    amount: Number(fundAmount),
+                  });
+                  toast.success(t("Card funded successfully!", "কার্ড সফলভাবে ফান্ড করা হয়েছে!"));
+                  setShowFundDialog(false);
+                } catch (e: any) {
+                  toast.error(e.message || "Failed to fund card");
+                }
+              }}
+            >
+              {fundCard.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              {t("Fund Card", "কার্ড ফান্ড করুন")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
