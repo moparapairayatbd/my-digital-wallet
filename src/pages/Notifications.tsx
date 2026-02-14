@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Bell, Check, Send, Download, Receipt, Gift, Shield, CreditCard, Settings } from "lucide-react";
+import { EmptyState } from "@/components/EmptyState";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -134,10 +135,11 @@ const Notifications = () => {
             );
           })
         ) : (
-          <div className="text-center py-12 text-muted-foreground">
-            <Bell className="h-10 w-10 mx-auto mb-3 opacity-30" />
-            <p className="text-sm">{t("No notifications", "কোনো নোটিফিকেশন নেই")}</p>
-          </div>
+          <EmptyState
+            type="notifications"
+            title={t("No notifications", "কোনো নোটিফিকেশন নেই")}
+            description={t("You're all caught up! New notifications will appear here.", "সব দেখা হয়ে গেছে! নতুন নোটিফিকেশন এখানে দেখা যাবে।")}
+          />
         )}
       </div>
     </div>

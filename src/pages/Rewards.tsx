@@ -2,6 +2,7 @@ import { ArrowLeft, Award, Gift, Star } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/EmptyState";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useRewards, useRewardHistory } from "@/hooks/useWallet";
 import { rewardsData } from "@/data/mockData";
@@ -106,9 +107,11 @@ const Rewards = () => {
                 </div>
               ))
             ) : (
-              <div className="p-8 text-center text-muted-foreground text-sm">
-                {t("No reward history yet", "এখনও কোনো রিওয়ার্ড ইতিহাস নেই")}
-              </div>
+              <EmptyState
+                type="rewards"
+                title={t("No reward history yet", "এখনও কোনো রিওয়ার্ড ইতিহাস নেই")}
+                description={t("Earn points by sending money, paying bills, and more!", "টাকা পাঠিয়ে, বিল পে করে পয়েন্ট আয় করুন!")}
+              />
             )}
           </CardContent>
         </Card>

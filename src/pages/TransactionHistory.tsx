@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/EmptyState";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -205,9 +206,11 @@ const TransactionHistory = () => {
           </div>
         </div>
       ) : (
-        <div className="text-center py-12 text-muted-foreground">
-          {t("No transactions found", "কোনো লেনদেন পাওয়া যায়নি")}
-        </div>
+        <EmptyState
+          type="transactions"
+          title={t("No transactions found", "কোনো লেনদেন পাওয়া যায়নি")}
+          description={t("Your transactions will appear here once you start using Nitrozix", "আপনি Nitrozix ব্যবহার শুরু করলে এখানে লেনদেন দেখা যাবে")}
+        />
       )}
     </div>
   );

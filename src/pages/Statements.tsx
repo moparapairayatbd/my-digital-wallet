@@ -2,6 +2,7 @@ import { ArrowLeft, Download, FileText, TrendingDown, TrendingUp } from "lucide-
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/EmptyState";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useTransactions } from "@/hooks/useWallet";
 import { Link } from "react-router-dom";
@@ -107,9 +108,11 @@ const Statements = () => {
             ))}
           </div>
         ) : (
-          <div className="text-center py-12 text-muted-foreground text-sm">
-            {t("No transactions yet to generate statements", "স্টেটমেন্ট তৈরি করার জন্য এখনও কোনো লেনদেন নেই")}
-          </div>
+          <EmptyState
+            type="money"
+            title={t("No statements yet", "এখনও কোনো স্টেটমেন্ট নেই")}
+            description={t("Statements are generated from your transactions", "আপনার লেনদেন থেকে স্টেটমেন্ট তৈরি হবে")}
+          />
         )}
       </div>
     </div>

@@ -9,6 +9,7 @@ import { BalanceCard } from "@/components/dashboard/BalanceCard";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { BankingPreview } from "@/components/dashboard/BankingPreview";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/EmptyState";
 
 const Dashboard = () => {
   const { t } = useLanguage();
@@ -94,9 +95,11 @@ const Dashboard = () => {
                 );
               })
             ) : (
-              <div className="p-8 text-center text-muted-foreground text-sm">
-                {t("No transactions yet. Start by sending or adding money!", "এখনো কোনো লেনদেন নেই।")}
-              </div>
+              <EmptyState
+                type="transactions"
+                title={t("No transactions yet", "এখনো কোনো লেনদেন নেই")}
+                description={t("Start by sending or adding money!", "টাকা পাঠিয়ে বা যোগ করে শুরু করুন!")}
+              />
             )}
           </CardContent>
         </Card>
