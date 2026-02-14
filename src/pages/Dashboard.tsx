@@ -1,6 +1,6 @@
 import { ArrowUpRight, ArrowDownLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { useProfile, useTransactions } from "@/hooks/useWallet";
+import { useProfile, useTransactions, useRealtimeSync } from "@/hooks/useWallet";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Link } from "react-router-dom";
 import { offers } from "@/data/mockData";
@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 const Dashboard = () => {
   const { t } = useLanguage();
+  useRealtimeSync();
   const { data: profile } = useProfile();
   const { data: transactions, isLoading: txLoading } = useTransactions();
 
