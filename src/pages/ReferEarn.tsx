@@ -1,8 +1,9 @@
-import { ArrowLeft, Copy, Share2, Users, Trophy, Gift } from "lucide-react";
+import { ArrowLeft, Copy, Share2, Users, Gift } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { user, referralData } from "@/data/mockData";
+import { useProfile, useReferrals } from "@/hooks/useWallet";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -14,6 +15,23 @@ const steps = [
 
 const ReferEarn = () => {
   const { t } = useLanguage();
+  const { data: profile, isLoading: profileLoading } = useProfile();
+  const { data: referrals, isLoading: referralsLoading } = useReferrals();
+
+  const referralCode = profile?.referral_code || "---";
+  const totalReferred = referrals?.length || 0;
+  const completedReferrals = referrals?.filter(r => r.status === "completed") || [];
+  const totalEarned = completedReferrals.reduce((sum, r) => sum + Number(r.reward_amount || 0), 0);
+  const pendingCount = referrals?.filter(r => r.status === "pending")?.length || 0;
+
+  const handleShare = () => {
+    if (navigator.share) {
+      navigator.share({ title: "Join Nitrozix!", text: `Use my referral code ${referralCode} to get ৳100 bonus!`, url: window.location.origin });
+    } else {
+      navigator.clipboard.writeText(`Join Nitrozix with my code: ${referralCode}`);
+      toast.success(t("Link copied!", "লিংক কপি হয়েছে!"));
+    }
+  };
 
   return (
     <div className="max-w-lg mx-auto space-y-6 page-enter">
@@ -22,31 +40,33 @@ const ReferEarn = () => {
         <h1 className="text-xl font-display font-bold">{t("Refer & Earn", "রেফার ও আয়")}</h1>
       </div>
 
-      {/* Referral Code Card */}
-      <Card className="gradient-secondary text-primary-foreground border-0">
-        <CardContent className="p-6 text-center">
-          <p className="text-sm opacity-80 mb-2">{t("Your Referral Code", "আপনার রেফারেল কোড")}</p>
-          <div className="bg-white/20 rounded-xl py-3 px-6 inline-block">
-            <p className="text-2xl font-mono font-bold tracking-widest">{user.referralCode}</p>
-          </div>
-          <div className="flex gap-3 mt-4 justify-center">
-            <Button size="sm" className="bg-white/20 hover:bg-white/30 text-primary-foreground gap-2 border-0"
-              onClick={() => { navigator.clipboard.writeText(user.referralCode); toast.success("Copied!"); }}>
-              <Copy className="h-4 w-4" /> {t("Copy", "কপি")}
-            </Button>
-            <Button size="sm" className="bg-white/20 hover:bg-white/30 text-primary-foreground gap-2 border-0">
-              <Share2 className="h-4 w-4" /> {t("Share", "শেয়ার")}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      {profileLoading ? (
+        <Skeleton className="h-40 w-full rounded-xl" />
+      ) : (
+        <Card className="gradient-secondary text-primary-foreground border-0">
+          <CardContent className="p-6 text-center">
+            <p className="text-sm opacity-80 mb-2">{t("Your Referral Code", "আপনার রেফারেল কোড")}</p>
+            <div className="bg-white/20 rounded-xl py-3 px-6 inline-block">
+              <p className="text-2xl font-mono font-bold tracking-widest">{referralCode}</p>
+            </div>
+            <div className="flex gap-3 mt-4 justify-center">
+              <Button size="sm" className="bg-white/20 hover:bg-white/30 text-primary-foreground gap-2 border-0"
+                onClick={() => { navigator.clipboard.writeText(referralCode); toast.success("Copied!"); }}>
+                <Copy className="h-4 w-4" /> {t("Copy", "কপি")}
+              </Button>
+              <Button size="sm" className="bg-white/20 hover:bg-white/30 text-primary-foreground gap-2 border-0" onClick={handleShare}>
+                <Share2 className="h-4 w-4" /> {t("Share", "শেয়ার")}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: t("Referred", "রেফার"), value: referralData.totalReferred },
-          { label: t("Earned", "আয়"), value: `৳${referralData.totalEarned}` },
-          { label: t("Pending", "মুলতুবি"), value: `৳${referralData.pendingRewards}` },
+          { label: t("Referred", "রেফার"), value: totalReferred },
+          { label: t("Earned", "আয়"), value: `৳${totalEarned}` },
+          { label: t("Pending", "মুলতুবি"), value: pendingCount },
         ].map((stat) => (
           <Card key={stat.label}>
             <CardContent className="p-3 text-center">
@@ -57,7 +77,6 @@ const ReferEarn = () => {
         ))}
       </div>
 
-      {/* How it works */}
       <div>
         <h2 className="font-display font-semibold mb-3">{t("How It Works", "কিভাবে কাজ করে")}</h2>
         <Card>
@@ -71,32 +90,43 @@ const ReferEarn = () => {
                   <p className="text-sm font-medium">{t(step.title, step.titleBn)}</p>
                   <p className="text-xs text-muted-foreground">{step.desc}</p>
                 </div>
-                {i < steps.length - 1 && <div className="absolute left-8 mt-10 h-4 w-px bg-border" />}
               </div>
             ))}
           </CardContent>
         </Card>
       </div>
 
-      {/* Leaderboard */}
+      {/* Referral history */}
       <div>
-        <h2 className="font-display font-semibold mb-3">{t("Leaderboard", "লিডারবোর্ড")}</h2>
+        <h2 className="font-display font-semibold mb-3">{t("Referral History", "রেফারেল ইতিহাস")}</h2>
         <Card>
           <CardContent className="p-0 divide-y divide-border">
-            {referralData.leaderboard.map((entry) => (
-              <div key={entry.rank} className="flex items-center gap-3 p-4 touch-target">
-                <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                  entry.rank <= 3 ? "gradient-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                }`}>
-                  {entry.rank}
+            {referralsLoading ? (
+              Array.from({ length: 2 }).map((_, i) => (
+                <div key={i} className="p-4"><Skeleton className="h-8 w-full" /></div>
+              ))
+            ) : referrals && referrals.length > 0 ? (
+              referrals.map((ref) => (
+                <div key={ref.id} className="flex items-center justify-between p-4 touch-target">
+                  <div>
+                    <p className="text-sm font-medium">{ref.referred_phone}</p>
+                    <p className="text-xs text-muted-foreground">{new Date(ref.created_at).toLocaleDateString()}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ref.status === "completed" ? "bg-nitro-green/10 text-nitro-green" : "bg-nitro-orange/10 text-nitro-orange"}`}>
+                      {ref.status}
+                    </span>
+                    {ref.status === "completed" && (
+                      <p className="text-xs text-nitro-green mt-0.5">+৳{Number(ref.reward_amount || 0)}</p>
+                    )}
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">{entry.name}</p>
-                  <p className="text-xs text-muted-foreground">{entry.referrals} referrals</p>
-                </div>
-                <span className="text-sm font-semibold text-nitro-green">৳{entry.earned}</span>
+              ))
+            ) : (
+              <div className="p-8 text-center text-muted-foreground text-sm">
+                {t("No referrals yet. Start sharing!", "এখনও কোনো রেফারেল নেই। শেয়ার করুন!")}
               </div>
-            ))}
+            )}
           </CardContent>
         </Card>
       </div>
