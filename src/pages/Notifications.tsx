@@ -1,42 +1,76 @@
-import { useState } from "react";
-import { Bell, Check, ChevronRight, CreditCard, Send, Download, Receipt, Gift, Shield, Settings } from "lucide-react";
+import { useEffect } from "react";
+import { Bell, Check, Send, Download, Receipt, Gift, Shield, CreditCard, Settings } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useNotifications } from "@/hooks/useWallet";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useQueryClient } from "@tanstack/react-query";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useState } from "react";
 
-interface Notification {
-  id: string;
-  type: "transaction" | "promo" | "security" | "system";
-  title: string;
-  titleBn: string;
-  message: string;
-  time: string;
-  read: boolean;
-  icon: typeof Send;
-  color: string;
-}
+const iconMap: Record<string, typeof Send> = {
+  transaction: Download,
+  promo: Gift,
+  security: Shield,
+  system: CreditCard,
+};
 
-const mockNotifications: Notification[] = [
-  { id: "n1", type: "transaction", title: "Money Received", titleBn: "টাকা প্রাপ্তি", message: "৳2,000 received from 01911-556677", time: "2 min ago", read: false, icon: Download, color: "bg-nitro-green/10 text-nitro-green" },
-  { id: "n2", type: "promo", title: "20% Cashback!", titleBn: "২০% ক্যাশব্যাক!", message: "Get 20% cashback on mobile recharge above ৳100", time: "1 hour ago", read: false, icon: Gift, color: "bg-nitro-orange/10 text-nitro-orange" },
-  { id: "n3", type: "transaction", title: "Bill Payment Success", titleBn: "বিল পেমেন্ট সফল", message: "Electricity bill ৳1,250 paid successfully", time: "3 hours ago", read: true, icon: Receipt, color: "bg-nitro-blue/10 text-nitro-blue" },
-  { id: "n4", type: "security", title: "Login Alert", titleBn: "লগইন সতর্কতা", message: "New login detected from Dhaka, BD", time: "5 hours ago", read: true, icon: Shield, color: "bg-nitro-pink/10 text-nitro-pink" },
-  { id: "n5", type: "transaction", title: "Money Sent", titleBn: "টাকা পাঠানো", message: "৳500 sent to 01811-223344", time: "Yesterday", read: true, icon: Send, color: "bg-nitro-purple/10 text-nitro-purple" },
-  { id: "n6", type: "system", title: "Card Ready", titleBn: "কার্ড প্রস্তুত", message: "Your virtual card is now active and ready to use", time: "2 days ago", read: true, icon: CreditCard, color: "bg-nitro-teal/10 text-nitro-teal" },
-  { id: "n7", type: "promo", title: "Free Transfer Weekend", titleBn: "ফ্রি ট্রান্সফার উইকেন্ড", message: "Send money for free this weekend!", time: "3 days ago", read: true, icon: Gift, color: "bg-nitro-orange/10 text-nitro-orange" },
-];
+const colorMap: Record<string, string> = {
+  transaction: "bg-nitro-green/10 text-nitro-green",
+  promo: "bg-nitro-orange/10 text-nitro-orange",
+  security: "bg-nitro-pink/10 text-nitro-pink",
+  system: "bg-nitro-blue/10 text-nitro-blue",
+};
 
 const Notifications = () => {
   const { t } = useLanguage();
-  const [notifications, setNotifications] = useState(mockNotifications);
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const { data: notifications, isLoading } = useNotifications();
   const [filter, setFilter] = useState("all");
 
-  const unreadCount = notifications.filter(n => !n.read).length;
-  const filtered = filter === "all" ? notifications : notifications.filter(n => n.type === filter);
+  const unreadCount = notifications?.filter(n => !n.is_read).length || 0;
+  const filtered = filter === "all" ? notifications : notifications?.filter(n => n.type === filter);
 
-  const markAllRead = () => setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-  const markRead = (id: string) => setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+  const markAllRead = async () => {
+    if (!user || !notifications) return;
+    const unreadIds = notifications.filter(n => !n.is_read).map(n => n.id);
+    if (unreadIds.length === 0) return;
+    await supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("user_id", user.id)
+      .in("id", unreadIds);
+    queryClient.invalidateQueries({ queryKey: ["notifications", user.id] });
+  };
+
+  const markRead = async (id: string) => {
+    if (!user) return;
+    await supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("id", id);
+    queryClient.invalidateQueries({ queryKey: ["notifications", user.id] });
+  };
+
+  // Mark all as read when leaving the page
+  useEffect(() => {
+    return () => {
+      if (user && unreadCount > 0) {
+        supabase
+          .from("notifications")
+          .update({ is_read: true })
+          .eq("user_id", user.id)
+          .eq("is_read", false)
+          .then(() => {
+            queryClient.invalidateQueries({ queryKey: ["notifications", user.id] });
+          });
+      }
+    };
+  }, [user, unreadCount, queryClient]);
 
   return (
     <div className="space-y-6 animate-fade-in max-w-4xl mx-auto">
@@ -62,26 +96,44 @@ const Notifications = () => {
       </Tabs>
 
       <div className="space-y-2">
-        {filtered.map((notif) => (
-          <Card key={notif.id} className={`cursor-pointer transition-all ${!notif.read ? "border-primary/30 bg-primary/[0.02]" : ""}`} onClick={() => markRead(notif.id)}>
-            <CardContent className="p-4">
-              <div className="flex items-start gap-3">
-                <div className={`h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 ${notif.color}`}>
-                  <notif.icon className="h-4 w-4" />
+        {isLoading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i}>
+              <CardContent className="p-4 flex gap-3 items-start">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <div className="flex-1 space-y-1">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-48" />
+                  <Skeleton className="h-3 w-16" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className={`text-sm ${!notif.read ? "font-semibold" : "font-medium"}`}>{t(notif.title, notif.titleBn)}</p>
-                    {!notif.read && <div className="h-2 w-2 rounded-full bg-primary flex-shrink-0" />}
+              </CardContent>
+            </Card>
+          ))
+        ) : filtered && filtered.length > 0 ? (
+          filtered.map((notif) => {
+            const Icon = iconMap[notif.type] || Bell;
+            const color = colorMap[notif.type] || "bg-muted text-muted-foreground";
+            return (
+              <Card key={notif.id} className={`cursor-pointer transition-all ${!notif.is_read ? "border-primary/30 bg-primary/[0.02]" : ""}`} onClick={() => !notif.is_read && markRead(notif.id)}>
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    <div className={`h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 ${color}`}>
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className={`text-sm ${!notif.is_read ? "font-semibold" : "font-medium"}`}>{notif.title}</p>
+                        {!notif.is_read && <div className="h-2 w-2 rounded-full bg-primary flex-shrink-0" />}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate">{notif.message}</p>
+                      <p className="text-xs text-muted-foreground/60 mt-1">{new Date(notif.created_at).toLocaleString()}</p>
+                    </div>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5 truncate">{notif.message}</p>
-                  <p className="text-xs text-muted-foreground/60 mt-1">{notif.time}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-        {filtered.length === 0 && (
+                </CardContent>
+              </Card>
+            );
+          })
+        ) : (
           <div className="text-center py-12 text-muted-foreground">
             <Bell className="h-10 w-10 mx-auto mb-3 opacity-30" />
             <p className="text-sm">{t("No notifications", "কোনো নোটিফিকেশন নেই")}</p>
