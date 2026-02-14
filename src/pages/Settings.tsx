@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useProfile } from "@/hooks/useWallet";
 import { useAuth } from "@/contexts/AuthContext";
-import { Globe, Bell, Shield, Smartphone, ChevronRight, LogOut, FileText, HelpCircle, Info, Camera, User, Award, Users, CreditCard, Moon } from "lucide-react";
+import { Globe, Bell, Shield, Smartphone, ChevronRight, LogOut, FileText, HelpCircle, Info, Camera, User, Award, Users, CreditCard, Moon, Sun, Monitor } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -48,7 +48,7 @@ const settingsSections = [
 
 const SettingsPage = () => {
   const { lang, toggleLang, t } = useLanguage();
-  const { theme, toggleTheme } = useTheme();
+  const { mode, setMode } = useTheme();
   const { signOut } = useAuth();
   const { data: profile } = useProfile();
   const navigate = useNavigate();
@@ -108,7 +108,21 @@ const SettingsPage = () => {
                           {lang === "en" ? "বাংলা" : "English"}
                         </Button>
                       ) : item.toggle === "theme" ? (
-                        <Switch checked={theme === "dark"} onCheckedChange={toggleTheme} />
+                        <div className="flex items-center gap-1 bg-muted rounded-full p-0.5">
+                          {([
+                            { value: "light" as const, icon: Sun },
+                            { value: "system" as const, icon: Monitor },
+                            { value: "dark" as const, icon: Moon },
+                          ]).map(({ value, icon: Icon }) => (
+                            <button
+                              key={value}
+                              onClick={(e) => { e.preventDefault(); setMode(value); }}
+                              className={`p-1.5 rounded-full transition-all ${mode === value ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                            >
+                              <Icon className="h-3.5 w-3.5" />
+                            </button>
+                          ))}
+                        </div>
                       ) : (
                         <Switch defaultChecked />
                       )
