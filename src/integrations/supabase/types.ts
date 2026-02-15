@@ -116,6 +116,48 @@ export type Database = {
         }
         Relationships: []
       }
+      card_webhook_logs: {
+        Row: {
+          amount: number | null
+          card_id: string | null
+          created_at: string
+          event_type: string
+          id: string
+          narrative: string | null
+          processed: boolean
+          raw_payload: Json
+          status: string | null
+          strowallet_ref: string | null
+          user_id: string | null
+        }
+        Insert: {
+          amount?: number | null
+          card_id?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          narrative?: string | null
+          processed?: boolean
+          raw_payload?: Json
+          status?: string | null
+          strowallet_ref?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          amount?: number | null
+          card_id?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          narrative?: string | null
+          processed?: boolean
+          raw_payload?: Json
+          status?: string | null
+          strowallet_ref?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       cards: {
         Row: {
           card_name: string
