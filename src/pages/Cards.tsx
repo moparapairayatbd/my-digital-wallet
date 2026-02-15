@@ -1,16 +1,20 @@
 import { useState, useEffect, useCallback } from "react";
-import { CreditCard, Plus, Eye, EyeOff, Snowflake, Unlock, Copy, Ban, Wifi, Shield, ChevronRight, ChevronLeft, User, FileText, Palette, CheckCircle2, Truck, Loader2, DollarSign, ArrowDownToLine, History, AlertTriangle } from "lucide-react";
+import { CreditCard, Plus, Eye, EyeOff, Snowflake, Unlock, Copy, Ban, Wifi, Shield, ChevronRight, ChevronLeft, User, FileText, Palette, CheckCircle2, Truck, Loader2, DollarSign, ArrowDownToLine, History, AlertTriangle, Activity, RefreshCw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "@/components/ui/sonner";
 import TransactionSuccess from "@/components/TransactionSuccess";
 import { useNavigate } from "react-router-dom";
 import { useCards, useCreateCard, useProfile, useFreezeCard, useFundCard, useCardDetails, useWallet, useWithdrawFromCard, useBlockCard, useCardTransactions } from "@/hooks/useWallet";
 import { Skeleton } from "@/components/ui/skeleton";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const cardDesigns = [
   { id: "d1", name: "Aurora", gradient: "bg-gradient-to-br from-[hsl(280,65%,55%)] via-[hsl(330,85%,52%)] to-[hsl(25,95%,55%)]" },
@@ -94,6 +98,7 @@ const BankCard = ({ card, showDetails }: { card: DisplayCard; showDetails: boole
 const Cards = () => {
   const { t } = useLanguage();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { data: dbCards, isLoading: cardsLoading } = useCards();
   const { data: profile } = useProfile();
   const createCard = useCreateCard();
@@ -121,10 +126,49 @@ const Cards = () => {
   const [showBlockDialog, setShowBlockDialog] = useState(false);
   const [showTransactions, setShowTransactions] = useState(false);
   const [cardTxns, setCardTxns] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState("cards");
 
   const { data: wallet } = useWallet();
 
   const [cardBalances, setCardBalances] = useState<Record<string, number | null>>({});
+
+  // Webhook activity logs
+  const [webhookLogs, setWebhookLogs] = useState<any[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+
+  const fetchWebhookLogs = useCallback(async () => {
+    if (!user) return;
+    setLogsLoading(true);
+    const { data } = await supabase
+      .from("card_webhook_logs")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    setWebhookLogs(data || []);
+    setLogsLoading(false);
+  }, [user]);
+
+  useEffect(() => {
+    if (activeTab === "activity") fetchWebhookLogs();
+  }, [activeTab, fetchWebhookLogs]);
+
+  // Realtime subscription for webhook logs
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel("card-webhook-realtime")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "card_webhook_logs", filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          setWebhookLogs((prev) => [payload.new as any, ...prev].slice(0, 50));
+          toast.info("New card event received");
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user]);
 
   // Fetch real balances from Strowallet for all cards
   const fetchCardBalances = useCallback(async () => {
@@ -381,7 +425,20 @@ const Cards = () => {
   // Main cards view
   return (
     <div className="space-y-6 animate-fade-in max-w-4xl mx-auto">
-      <div className="flex items-center justify-between">
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <TabsList className="w-full mb-4">
+        <TabsTrigger value="cards" className="flex-1 gap-1.5">
+          <CreditCard className="h-4 w-4" />
+          {t("My Cards", "আমার কার্ড")}
+        </TabsTrigger>
+        <TabsTrigger value="activity" className="flex-1 gap-1.5">
+          <Activity className="h-4 w-4" />
+          {t("Activity", "কার্যকলাপ")}
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="cards">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-2xl font-display font-bold">{t("My Cards", "আমার কার্ড")}</h1>
           <p className="text-muted-foreground text-sm">{t("Manage your virtual & physical cards", "আপনার ভার্চুয়াল ও ফিজিক্যাল কার্ড পরিচালনা করুন")}</p>
@@ -527,6 +584,84 @@ const Cards = () => {
           )}
         </>
       )}
+      </TabsContent>
+
+      <TabsContent value="activity">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-display font-bold flex items-center gap-2">
+                <Activity className="h-5 w-5 text-primary" />
+                {t("Card Activity", "কার্ড কার্যকলাপ")}
+              </h2>
+              <p className="text-muted-foreground text-sm">{t("Real-time webhook events for your cards", "আপনার কার্ডের রিয়েল-টাইম ইভেন্ট")}</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={fetchWebhookLogs} disabled={logsLoading}>
+              <RefreshCw className={`h-4 w-4 mr-1 ${logsLoading ? "animate-spin" : ""}`} />
+              {t("Refresh", "রিফ্রেশ")}
+            </Button>
+          </div>
+
+          {logsLoading && webhookLogs.length === 0 ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map(i => <Skeleton key={i} className="h-20 w-full rounded-xl" />)}
+            </div>
+          ) : webhookLogs.length === 0 ? (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <Activity className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                <p className="font-medium">{t("No activity yet", "এখনো কোনো কার্যকলাপ নেই")}</p>
+                <p className="text-sm text-muted-foreground mt-1">{t("Card events will appear here in real-time", "কার্ড ইভেন্ট এখানে রিয়েল-টাইমে দেখা যাবে")}</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {webhookLogs.map((log: any) => {
+                const eventIcon = log.event_type?.includes("authorization") ? "💳"
+                  : log.event_type?.includes("refund") ? "↩️"
+                  : log.event_type?.includes("declined") ? "❌"
+                  : log.event_type?.includes("crossborder") ? "🌍"
+                  : "✅";
+                const statusColor = log.status === "success" || log.status === "completed" ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                  : log.status === "failed" || log.status === "declined" ? "bg-destructive/10 text-destructive border-destructive/20"
+                  : log.status === "pending" ? "bg-amber-500/10 text-amber-600 border-amber-500/20"
+                  : "bg-muted text-muted-foreground border-border";
+
+                return (
+                  <Card key={log.id} className="overflow-hidden">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3 flex-1 min-w-0">
+                          <span className="text-xl mt-0.5">{eventIcon}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="text-sm font-semibold">{log.event_type?.replace(/\./g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) || "Event"}</p>
+                              {log.status && (
+                                <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${statusColor}`}>
+                                  {log.status}
+                                </Badge>
+                              )}
+                            </div>
+                            {log.narrative && <p className="text-sm text-muted-foreground truncate mt-0.5">{log.narrative}</p>}
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {log.card_id && <span className="font-mono">Card: ...{log.card_id.slice(-6)} • </span>}
+                              {new Date(log.created_at).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                        {log.amount != null && (
+                          <p className="text-sm font-bold whitespace-nowrap">${Number(log.amount).toFixed(2)}</p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </TabsContent>
+    </Tabs>
 
       {/* Fund Card Dialog */}
       <Dialog open={showFundDialog} onOpenChange={setShowFundDialog}>
