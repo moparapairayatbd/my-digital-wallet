@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { CreditCard, Plus, Eye, EyeOff, Snowflake, Unlock, Copy, Ban, Wifi, Shield, ChevronRight, ChevronLeft, User, FileText, Palette, CheckCircle2, Truck, Loader2, DollarSign, ArrowDownToLine, History, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,7 @@ interface DisplayCard {
   gradient: string;
   status: string;
   strowallet_card_id?: string;
+  balance?: number | null;
 }
 
 const BankCard = ({ card, showDetails }: { card: DisplayCard; showDetails: boolean }) => (
@@ -55,9 +56,17 @@ const BankCard = ({ card, showDetails }: { card: DisplayCard; showDetails: boole
           <p className="text-[10px] uppercase tracking-widest opacity-70">{card.type === "virtual" ? "Virtual Card" : "Physical Card"}</p>
           <p className="text-xs opacity-60 mt-0.5">Nitrozix • BDT</p>
         </div>
-        <div className="flex items-center gap-2">
-          {card.frozen && <Snowflake className="h-4 w-4 opacity-80" />}
-          <Wifi className="h-5 w-5 opacity-80 rotate-90" />
+        <div className="flex flex-col items-end gap-1">
+          <div className="flex items-center gap-2">
+            {card.frozen && <Snowflake className="h-4 w-4 opacity-80" />}
+            <Wifi className="h-5 w-5 opacity-80 rotate-90" />
+          </div>
+          {card.balance !== undefined && card.balance !== null && (
+            <div className="bg-white/20 backdrop-blur-sm rounded-lg px-2.5 py-1 mt-1">
+              <p className="text-[10px] uppercase tracking-wider opacity-70">Balance</p>
+              <p className="text-sm font-bold font-mono">${Number(card.balance).toFixed(2)}</p>
+            </div>
+          )}
         </div>
       </div>
       <div className="flex items-center gap-3 my-2">
@@ -115,6 +124,31 @@ const Cards = () => {
 
   const { data: wallet } = useWallet();
 
+  const [cardBalances, setCardBalances] = useState<Record<string, number | null>>({});
+
+  // Fetch real balances from Strowallet for all cards
+  const fetchCardBalances = useCallback(async () => {
+    if (!dbCards || dbCards.length === 0) return;
+    for (const c of dbCards) {
+      const sId = (c as any).strowallet_card_id;
+      if (sId) {
+        try {
+          const details = await cardDetails.mutateAsync({ strowalletCardId: sId });
+          const bal = details?.balance ?? details?.data?.balance ?? details?.card_balance ?? details?.data?.card_balance ?? null;
+          if (bal !== null && bal !== undefined) {
+            setCardBalances(prev => ({ ...prev, [c.id]: Number(bal) }));
+          }
+        } catch {
+          // silently skip
+        }
+      }
+    }
+  }, [dbCards]);
+
+  useEffect(() => {
+    fetchCardBalances();
+  }, [fetchCardBalances]);
+
   // Map DB cards to display cards
   const cards: DisplayCard[] = (dbCards || []).map(c => ({
     id: c.id,
@@ -127,6 +161,7 @@ const Cards = () => {
     gradient: designGradientMap[c.design || "d1"] || cardDesigns[0].gradient,
     status: c.status,
     strowallet_card_id: (c as any).strowallet_card_id || "",
+    balance: cardBalances[c.id] ?? null,
   }));
 
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
