@@ -663,6 +663,11 @@ export function useBlockCard() {
   return useMutation({
     mutationFn: async ({ cardId, strowalletCardId }: { cardId: string; strowalletCardId: string }) => {
       if (!user) throw new Error("Not authenticated");
+      if (!strowalletCardId) {
+        // For local-only cards, just mark as blocked in DB without calling Strowallet
+        await supabase.from("cards").update({ status: "blocked" }).eq("id", cardId);
+        return { success: true, local_only: true };
+      }
 
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const session = (await supabase.auth.getSession()).data.session;
