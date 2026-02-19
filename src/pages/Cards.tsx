@@ -127,6 +127,8 @@ const Cards = () => {
   const [showTransactions, setShowTransactions] = useState(false);
   const [cardTxns, setCardTxns] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("cards");
+  const [newEventCount, setNewEventCount] = useState(0);
+  const [latestEventIds, setLatestEventIds] = useState<Set<string>>(new Set());
 
   const { data: wallet } = useWallet();
 
@@ -162,8 +164,24 @@ const Cards = () => {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "card_webhook_logs", filter: `user_id=eq.${user.id}` },
         (payload) => {
-          setWebhookLogs((prev) => [payload.new as any, ...prev].slice(0, 50));
-          toast.info("New card event received");
+          const newLog = payload.new as any;
+          setWebhookLogs((prev) => [newLog, ...prev].slice(0, 50));
+          setLatestEventIds((prev) => new Set([...prev, newLog.id]));
+          // If user is not on the Activity tab, increment badge counter
+          setActiveTab((current) => {
+            if (current !== "activity") {
+              setNewEventCount((n) => n + 1);
+              const eventLabel = newLog.event_type?.includes("authorization") ? "Card authorization request"
+                : newLog.event_type?.includes("refund") ? "Card refund received"
+                : newLog.event_type?.includes("declined") ? "Card transaction declined"
+                : "Card transaction";
+              const amountStr = newLog.amount != null ? ` • $${Number(newLog.amount).toFixed(2)}` : "";
+              toast.info(`${eventLabel}${amountStr}`, {
+                action: { label: "View", onClick: () => setActiveTab("activity") },
+              });
+            }
+            return current;
+          });
         }
       )
       .subscribe();
@@ -425,15 +443,20 @@ const Cards = () => {
   // Main cards view
   return (
     <div className="space-y-6 animate-fade-in max-w-4xl mx-auto">
-    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+    <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); if (v === "activity") { setNewEventCount(0); setLatestEventIds(new Set()); } }} className="w-full">
       <TabsList className="w-full mb-4">
         <TabsTrigger value="cards" className="flex-1 gap-1.5">
           <CreditCard className="h-4 w-4" />
           {t("My Cards", "আমার কার্ড")}
         </TabsTrigger>
-        <TabsTrigger value="activity" className="flex-1 gap-1.5">
+        <TabsTrigger value="activity" className="flex-1 gap-1.5 relative">
           <Activity className="h-4 w-4" />
           {t("Activity", "কার্যকলাপ")}
+          {newEventCount > 0 && (
+            <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground px-1">
+              {newEventCount > 9 ? "9+" : newEventCount}
+            </span>
+          )}
         </TabsTrigger>
       </TabsList>
 
@@ -593,6 +616,14 @@ const Cards = () => {
               <h2 className="text-lg font-display font-bold flex items-center gap-2">
                 <Activity className="h-5 w-5 text-primary" />
                 {t("Card Activity", "কার্ড কার্যকলাপ")}
+                {/* Live indicator */}
+                <span className="flex items-center gap-1 text-xs font-normal text-nitro-green">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-nitro-green opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-nitro-green" />
+                  </span>
+                  Live
+                </span>
               </h2>
               <p className="text-muted-foreground text-sm">{t("Real-time webhook events for your cards", "আপনার কার্ডের রিয়েল-টাইম ইভেন্ট")}</p>
             </div>
@@ -617,18 +648,22 @@ const Cards = () => {
           ) : (
             <div className="space-y-2">
               {webhookLogs.map((log: any) => {
+                const isNew = latestEventIds.has(log.id);
                 const eventIcon = log.event_type?.includes("authorization") ? "💳"
                   : log.event_type?.includes("refund") ? "↩️"
                   : log.event_type?.includes("declined") ? "❌"
                   : log.event_type?.includes("crossborder") ? "🌍"
                   : "✅";
-                const statusColor = log.status === "success" || log.status === "completed" ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                const statusColor = log.status === "success" || log.status === "completed" ? "bg-nitro-green/10 text-nitro-green border-nitro-green/20"
                   : log.status === "failed" || log.status === "declined" ? "bg-destructive/10 text-destructive border-destructive/20"
-                  : log.status === "pending" ? "bg-amber-500/10 text-amber-600 border-amber-500/20"
+                  : log.status === "pending" ? "bg-nitro-orange/10 text-nitro-orange border-nitro-orange/20"
                   : "bg-muted text-muted-foreground border-border";
 
                 return (
-                  <Card key={log.id} className="overflow-hidden">
+                  <Card
+                    key={log.id}
+                    className={`overflow-hidden transition-all duration-300 ${isNew ? "border-primary/40 bg-primary/5 animate-fade-in" : ""}`}
+                  >
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-start gap-3 flex-1 min-w-0">
@@ -639,6 +674,11 @@ const Cards = () => {
                               {log.status && (
                                 <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${statusColor}`}>
                                   {log.status}
+                                </Badge>
+                              )}
+                              {isNew && (
+                                <Badge className="text-[10px] px-1.5 py-0 bg-primary text-primary-foreground">
+                                  New
                                 </Badge>
                               )}
                             </div>
