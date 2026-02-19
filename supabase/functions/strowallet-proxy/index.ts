@@ -79,7 +79,8 @@ Deno.serve(async (req) => {
         endpoint = `${STROWALLET_BASE}/create-card/`;
         formData.name_on_card = params.name_on_card;
         formData.card_type = params.card_type || "visa";
-        formData.amount = String(params.amount || 1);
+        // Strowallet requires minimum amount of 3
+        formData.amount = String(Math.max(Number(params.amount || 3), 3));
         formData.customerEmail = params.customerEmail;
         break;
       }
