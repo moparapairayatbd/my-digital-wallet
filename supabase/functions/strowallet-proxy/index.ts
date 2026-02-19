@@ -111,9 +111,36 @@ Deno.serve(async (req) => {
         break;
       }
       case "block-card": {
-        endpoint = `${STROWALLET_BASE}/block-card/`;
-        formData.card_id = params.card_id;
-        break;
+        if (!params.card_id) {
+          return new Response(JSON.stringify({ error: "card_id is required to block a card" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        // Strowallet block-card uses GET with query params (POST returns 405)
+        const blockUrl = new URL(`${STROWALLET_BASE}/block-card/`);
+        blockUrl.searchParams.set("public_key", strowalletKey);
+        blockUrl.searchParams.set("card_id", params.card_id);
+        console.log(`Strowallet proxy: block-card (GET) -> ${blockUrl.toString()}`);
+        const blockRes = await fetch(blockUrl.toString(), { method: "GET" });
+        const blockContentType = blockRes.headers.get("content-type") || "";
+        const blockRawText = await blockRes.text();
+        console.log(`Strowallet block-card response (${blockRes.status}):`, blockRawText.substring(0, 500));
+        if (!blockContentType.includes("application/json")) {
+          console.error("Strowallet block-card returned non-JSON:", blockContentType, blockRawText.substring(0, 300));
+          return new Response(JSON.stringify({
+            error: `block-card endpoint returned non-JSON (status ${blockRes.status}). The endpoint may not be supported on your plan.`,
+            status_code: blockRes.status,
+          }), {
+            status: 502,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const blockData = JSON.parse(blockRawText);
+        return new Response(JSON.stringify(blockData), {
+          status: blockRes.ok ? 200 : 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
       case "card-withdraw-status": {
         endpoint = `${STROWALLET_BASE}/getcard_withdrawstatus/`;
