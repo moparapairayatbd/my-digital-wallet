@@ -6,6 +6,44 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+/**
+ * Verify HMAC-SHA256 signature from Strowallet.
+ * Strowallet sends the signature in the "x-strowallet-signature" header
+ * as a hex-encoded HMAC-SHA256 of the raw request body using the shared secret.
+ */
+async function verifySignature(
+  rawBody: string,
+  signatureHeader: string | null,
+  secret: string
+): Promise<boolean> {
+  if (!signatureHeader) return false;
+
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(secret);
+  const messageData = encoder.encode(rawBody);
+
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    keyData,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+
+  const signatureBuffer = await crypto.subtle.sign("HMAC", cryptoKey, messageData);
+  const expectedHex = Array.from(new Uint8Array(signatureBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+
+  // Constant-time comparison to prevent timing attacks
+  if (expectedHex.length !== signatureHeader.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < expectedHex.length; i++) {
+    mismatch |= expectedHex.charCodeAt(i) ^ signatureHeader.charCodeAt(i);
+  }
+  return mismatch === 0;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -13,10 +51,30 @@ Deno.serve(async (req) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const webhookSecret = Deno.env.get("STROWALLET_WEBHOOK_SECRET");
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
-    const payload = await req.json();
+    // Read raw body first (needed for signature verification)
+    const rawBody = await req.text();
+
+    // Verify signature if secret is configured
+    if (webhookSecret) {
+      const signature = req.headers.get("x-strowallet-signature");
+      const isValid = await verifySignature(rawBody, signature, webhookSecret);
+      if (!isValid) {
+        console.warn("Webhook signature verification failed. Signature:", signature);
+        return new Response(JSON.stringify({ error: "Invalid signature" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      console.log("Webhook signature verified successfully.");
+    } else {
+      console.warn("STROWALLET_WEBHOOK_SECRET not set — skipping signature verification.");
+    }
+
+    const payload = JSON.parse(rawBody);
     console.log("Strowallet webhook received:", JSON.stringify(payload).substring(0, 1000));
 
     // Determine event type from payload keys
