@@ -597,7 +597,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      reset_daily_spent: { Args: never; Returns: undefined }
     }
     Enums: {
       account_tier: "basic" | "silver" | "gold" | "platinum"
